@@ -1,0 +1,4 @@
+<view class="page">
+  <view class="graph card" wx:if="{{center}}"><view class="center"><view class="center-avatar">{{center.initial}}</view><view>{{center.name}}</view></view><view class="line line-left" wx:if="{{leftNode}}"></view><view class="line line-right" wx:if="{{rightNode}}"></view><view class="node node-left" wx:if="{{leftNode}}" data-id="{{leftNode.id}}" bindtap="contact"><view>{{leftNode.initial}}</view><text>{{leftNode.name}}</text></view><view class="node node-right" wx:if="{{rightNode}}" data-id="{{rightNode.id}}" bindtap="contact"><view>{{rightNode.initial}}</view><text>{{rightNode.name}}</text></view></view>
+  <view class="section-title">关系说明</view><view class="card"><view class="edge" wx:for="{{edges}}" wx:key="id"><text>{{item.type}}</text><text class="muted">关系已建立</text></view><view class="empty" wx:if="{{!edges.length}}">暂未建立关系</view></view>
+</view>

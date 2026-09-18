@@ -1,0 +1,14 @@
+{
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "ai-network-map",
+  "description": "AI人脉地图初版",
+  "appid": "touristappid",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false
+  },
+  "simulatorPluginLibVersion": {}
+}
