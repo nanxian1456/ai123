@@ -1,66 +1,8 @@
-// pages/map/index.js
+const { request, showError } = require("../../utils/api");
+
 Page({
-
-  /**
-   * 页面的初始数据
-   */
-  data: {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面加载
-   */
-  onLoad(options) {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面初次渲染完成
-   */
-  onReady() {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面显示
-   */
-  onShow() {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面隐藏
-   */
-  onHide() {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面卸载
-   */
-  onUnload() {
-
-  },
-
-  /**
-   * 页面相关事件处理函数--监听用户下拉动作
-   */
-  onPullDownRefresh() {
-
-  },
-
-  /**
-   * 页面上拉触底事件的处理函数
-   */
-  onReachBottom() {
-
-  },
-
-  /**
-   * 用户点击右上角分享
-   */
-  onShareAppMessage() {
-
-  }
-})
+  data: { cities: [], total: 0, topCity: "--" },
+  onShow() { this.load(); },
+  load() { request("/maps/cities").then((cities) => { const total = cities.reduce((sum, city) => sum + city.count, 0); const sorted = cities.slice().sort((a, b) => b.count - a.count).map((city) => ({ ...city, percent: total ? Math.round(city.count / total * 100) : 0 })); this.setData({ cities: sorted, total, topCity: sorted[0] ? sorted[0].name : "--" }); }).catch(showError); },
+  contacts(event) { wx.setStorageSync("contact-filter-city", event.currentTarget.dataset.city); wx.switchTab({ url: "/pages/contacts/index" }); }
+});

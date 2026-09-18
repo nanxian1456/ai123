@@ -1,8 +1,2 @@
 import { request, showError } from "../../utils/api";
-interface City { name: string; count: number; percent?: number; }
-Page({
-  data: { cities: [] as City[], total: 0 },
-  onShow() { this.load(); },
-  async load() { try { const cities = await request<City[]>("/maps/cities"); const total = cities.reduce((sum, item) => sum + item.count, 0); this.setData({ cities: cities.map(item => ({ ...item, percent: total ? Math.round((item.count / total) * 100) : 0 })), total }); } catch (error) { showError(error); } },
-  contacts(event: any) { wx.setStorageSync("contact-filter-city", event.currentTarget.dataset.city); wx.switchTab({ url: "/pages/contacts/index" }); }
-});
+Page({ data: { cities: [] as any[], total: 0, topCity: "--" }, onShow() { this.load(); }, async load() { try { const cities = await request<any[]>("/maps/cities"); const total = cities.reduce((sum, city) => sum + city.count, 0); const sorted = cities.slice().sort((a, b) => b.count - a.count).map(city => ({ ...city, percent: total ? Math.round(city.count / total * 100) : 0 })); this.setData({ cities: sorted, total, topCity: sorted[0]?.name || "--" }); } catch (error) { showError(error); } }, contacts(event: any) { wx.setStorageSync("contact-filter-city", event.currentTarget.dataset.city); wx.switchTab({ url: "/pages/contacts/index" }); } });

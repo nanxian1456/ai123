@@ -1,66 +1,16 @@
-// pages/contact-detail/index.js
+const { request, showError } = require("../../utils/api");
+
 Page({
-
-  /**
-   * 页面的初始数据
-   */
-  data: {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面加载
-   */
-  onLoad(options) {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面初次渲染完成
-   */
-  onReady() {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面显示
-   */
-  onShow() {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面隐藏
-   */
-  onHide() {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面卸载
-   */
-  onUnload() {
-
-  },
-
-  /**
-   * 页面相关事件处理函数--监听用户下拉动作
-   */
-  onPullDownRefresh() {
-
-  },
-
-  /**
-   * 页面上拉触底事件的处理函数
-   */
-  onReachBottom() {
-
-  },
-
-  /**
-   * 用户点击右上角分享
-   */
-  onShareAppMessage() {
-
-  }
-})
+  data: { contact: null, relationships: [] },
+  onLoad(query) { if (query.id) this.loadContact(query.id); },
+  onShow() { if (this.data.contact) this.loadRelationships(this.data.contact.id); },
+  loadContact(id) { request(`/contacts/${id}`).then((contact) => { this.setData({ contact: { ...contact, initial: contact.name ? contact.name.charAt(0) : "?" } }); return this.loadRelationships(id); }).catch(showError); },
+  loadRelationships(id) { return request(`/contacts/${id}/relationships`).then((relationships) => this.setData({ relationships })).catch(showError); },
+  graph() { if (this.data.contact) wx.navigateTo({ url: `/pages/graph/index?id=${this.data.contact.id}` }); },
+  call() { const phone = this.data.contact && this.data.contact.phone; phone ? wx.makePhoneCall({ phoneNumber: phone }) : wx.showToast({ title: "暂无电话号码", icon: "none" }); },
+  edit() { if (this.data.contact) wx.navigateTo({ url: `/pages/contact-form/index?id=${this.data.contact.id}` }); },
+  addRelationship() { if (this.data.contact) wx.navigateTo({ url: `/pages/relationship-form/index?sourceId=${this.data.contact.id}` }); },
+  openOther(event) { wx.redirectTo({ url: `/pages/contact-detail/index?id=${event.currentTarget.dataset.id}` }); },
+  removeRelationship(event) { const id = event.currentTarget.dataset.id; wx.showModal({ title: "删除关系", content: "删除后无法恢复，是否继续？", success: (result) => { if (result.confirm) request(`/relationships/${id}`, "DELETE").then(() => this.loadRelationships(this.data.contact.id)).catch(showError); } }); },
+  remove() { const contact = this.data.contact; if (!contact) return; wx.showModal({ title: "删除联系人", content: "联系人及其关联关系将被删除，是否继续？", success: (result) => { if (result.confirm) request(`/contacts/${contact.id}`, "DELETE").then(() => { wx.showToast({ title: "已删除", icon: "success" }); setTimeout(() => wx.navigateBack(), 400); }).catch(showError); } }); }
+});

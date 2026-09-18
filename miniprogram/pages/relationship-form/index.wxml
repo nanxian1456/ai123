@@ -1,10 +1,7 @@
 <view class="page">
-  <view class="card"><view class="caption">当前联系人</view><view class="person" wx:if="{{source}}"><view>{{source.name}}</view><text>{{source.position || '未填写职务'}} · {{source.organization || '未填写单位'}}</text></view></view>
-  <view class="section-title">关系信息</view>
-  <view class="card form">
-    <view class="field"><text>关联人物</text><picker mode="selector" range="{{contacts}}" range-key="name" value="{{targetIndex}}" bindchange="targetChange"><view class="picker-value">{{targetName}} ›</view></picker></view>
-    <view class="field"><text>关系类型</text><picker mode="selector" range="{{types}}" value="{{typeIndex}}" bindchange="typeChange"><view class="picker-value">{{typeName}} ›</view></picker></view>
-    <view class="field note"><text>备注</text><textarea placeholder="例如：共同参与某项目" value="{{note}}" bindinput="noteInput" maxlength="200"/></view>
-  </view>
-  <button class="primary-button save" bindtap="save">保存关系</button>
+  <view class="flow"><view class="flow-step active">1</view><view></view><view class="flow-step">2</view><view></view><view class="flow-step">3</view></view>
+  <view class="intro"><view>建立人物关系</view><text>选择双方联系人并记录关系类型</text></view>
+  <view class="source-card" wx:if="{{source}}"><text>当前联系人</text><view>{{source.name}}</view><text>{{source.position || '未填写职务'}} · {{source.organization || '未填写单位'}}</text></view>
+  <view class="section-title">关联设置</view><view class="form-card"><view class="field"><text>关联人物</text><picker mode="selector" range="{{contacts}}" range-key="name" value="{{targetIndex}}" bindchange="targetChange"><view>{{targetName}} <text>›</text></view></picker></view><view class="field"><text>关系类型</text><picker mode="selector" range="{{types}}" value="{{typeIndex}}" bindchange="typeChange"><view>{{typeName}} <text>›</text></view></picker></view><view class="field note"><text>关系备注</text><textarea placeholder="例如：共同参与某项目" value="{{note}}" bindinput="noteInput" maxlength="200"/></view></view>
+  <view class="save-button" bindtap="save"><text>＋</text><text>确认建立关系</text></view>
 </view>
