@@ -1,5 +1,6 @@
 package com.aimap.backend.contact;
 
+import com.aimap.backend.auth.CurrentUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,7 +14,8 @@ public class InsightController {
     public InsightController(ContactStore store) { this.store = store; }
 
     @GetMapping("/dashboard")
-    public Map<String, Object> dashboard(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId) {
+    public Map<String, Object> dashboard() {
+        String ownerId = CurrentUser.openId();
         List<Contact> contacts = store.findAll(ownerId);
         long organizations = contacts.stream().map(Contact::organization).filter(s -> !s.isBlank()).distinct().count();
         long cities = contacts.stream().map(Contact::city).filter(s -> !s.isBlank()).distinct().count();
@@ -21,14 +23,16 @@ public class InsightController {
     }
 
     @GetMapping("/maps/cities")
-    public List<Map<String, Object>> cities(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId) {
+    public List<Map<String, Object>> cities() {
+        String ownerId = CurrentUser.openId();
         Map<String, Long> counts = new TreeMap<>();
         for (Contact contact : store.findAll(ownerId)) if (!contact.city().isBlank()) counts.merge(contact.city(), 1L, Long::sum);
         return counts.entrySet().stream().map(entry -> Map.<String, Object>of("name", entry.getKey(), "count", entry.getValue())).toList();
     }
 
     @GetMapping("/tags")
-    public List<Map<String, Object>> tags(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId) {
+    public List<Map<String, Object>> tags() {
+        String ownerId = CurrentUser.openId();
         Map<String, Long> counts = new TreeMap<>();
         for (Contact contact : store.findAll(ownerId)) {
             contact.tags().forEach(tag -> counts.merge(tag, 1L, Long::sum));
@@ -37,7 +41,8 @@ public class InsightController {
     }
 
     @GetMapping("/organizations")
-    public List<Map<String, Object>> organizations(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId) {
+    public List<Map<String, Object>> organizations() {
+        String ownerId = CurrentUser.openId();
         Map<String, Long> counts = new TreeMap<>();
         for (Contact contact : store.findAll(ownerId)) {
             if (!contact.organization().isBlank()) counts.merge(contact.organization(), 1L, Long::sum);
@@ -46,7 +51,8 @@ public class InsightController {
     }
 
     @GetMapping("/contacts/{id}/relationships")
-    public List<Map<String, Object>> contactRelationships(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @PathVariable Long id) {
+    public List<Map<String, Object>> contactRelationships(@PathVariable Long id) {
+        String ownerId = CurrentUser.openId();
         if (store.findOne(ownerId, id) == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
         return store.relationshipsFor(ownerId).stream()
                 .filter(relationship -> relationship.sourceId().equals(id) || relationship.targetId().equals(id))
@@ -63,7 +69,8 @@ public class InsightController {
     }
 
     @GetMapping("/graphs/contacts/{id}")
-    public Map<String, Object> graph(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @PathVariable Long id) {
+    public Map<String, Object> graph(@PathVariable Long id) {
+        String ownerId = CurrentUser.openId();
         Contact center = store.findOne(ownerId, id);
         if (center == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
         List<Relationship> edges = store.relationshipsFor(ownerId).stream().filter(r -> r.sourceId().equals(id) || r.targetId().equals(id)).toList();
@@ -78,16 +85,16 @@ public class InsightController {
 
     @PostMapping("/relationships")
     @ResponseStatus(HttpStatus.CREATED)
-    public Relationship createRelationship(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @jakarta.validation.Valid @RequestBody RelationshipRequest request) {
-        Relationship relationship = store.saveRelationship(ownerId, request);
+    public Relationship createRelationship(@jakarta.validation.Valid @RequestBody RelationshipRequest request) {
+        Relationship relationship = store.saveRelationship(CurrentUser.openId(), request);
         if (relationship == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "关系对象无效");
         return relationship;
     }
 
     @DeleteMapping("/relationships/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteRelationship(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @PathVariable Long id) {
-        if (!store.deleteRelationship(ownerId, id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "关系不存在");
+    public void deleteRelationship(@PathVariable Long id) {
+        if (!store.deleteRelationship(CurrentUser.openId(), id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "关系不存在");
     }
 
     @PostMapping("/ai/extract")

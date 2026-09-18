@@ -27,6 +27,20 @@
 
 服务启动后访问地址为 `http://127.0.0.1:8080`。初版使用内存数据，重启服务会恢复 4 条演示联系人。
 
+## 微信登录与用户隔离
+
+小程序启动时会调用 `wx.login`，后端使用微信返回的临时 `code` 换取 `openid`，再签发七天有效的访问令牌。联系人、标签、统计、地区和关系接口均从该令牌中读取用户身份，不能再通过客户端传入用户 ID。
+
+部署前请在后端运行环境配置下列环境变量，不要将真实值提交到 Git：
+
+```powershell
+$env:WECHAT_APP_ID = "你的小程序AppID"
+$env:WECHAT_APP_SECRET = "你的小程序AppSecret"
+$env:AUTH_TOKEN_SECRET = "至少32位的随机字符串"
+```
+
+同时将根目录 `project.config.json` 的 `appid` 替换为同一个小程序 AppID，在微信公众平台配置生产后端的 HTTPS 请求合法域名。未配置 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 时，登录接口会返回“微信登录尚未配置 AppID 和 Secret”，不会回退为共享演示用户。
+
 ## 打开小程序
 
 1. 打开微信开发者工具。

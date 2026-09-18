@@ -1,5 +1,6 @@
 package com.aimap.backend.contact;
 
+import com.aimap.backend.auth.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -16,10 +17,10 @@ public class ContactController {
     public ContactController(ContactStore store) { this.store = store; }
 
     @GetMapping
-    public List<Contact> list(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId,
-                              @RequestParam(defaultValue = "") String keyword,
+    public List<Contact> list(@RequestParam(defaultValue = "") String keyword,
                               @RequestParam(defaultValue = "") String city,
                               @RequestParam(defaultValue = "") String tag) {
+        String ownerId = CurrentUser.openId();
         String lowerKeyword = keyword.toLowerCase(Locale.ROOT).trim();
         return store.findAll(ownerId).stream()
                 .filter(c -> lowerKeyword.isBlank() || contains(c.name(), lowerKeyword) || contains(c.organization(), lowerKeyword) || contains(c.position(), lowerKeyword))
@@ -29,7 +30,8 @@ public class ContactController {
     }
 
     @GetMapping("/{id}")
-    public Contact detail(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @PathVariable Long id) {
+    public Contact detail(@PathVariable Long id) {
+        String ownerId = CurrentUser.openId();
         Contact contact = store.findOne(ownerId, id);
         if (contact == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
         return contact;
@@ -37,21 +39,21 @@ public class ContactController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Contact create(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @Valid @RequestBody ContactRequest request) {
-        return store.save(ownerId, request);
+    public Contact create(@Valid @RequestBody ContactRequest request) {
+        return store.save(CurrentUser.openId(), request);
     }
 
     @PatchMapping("/{id}")
-    public Contact update(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @PathVariable Long id, @Valid @RequestBody ContactRequest request) {
-        Contact contact = store.update(ownerId, id, request);
+    public Contact update(@PathVariable Long id, @Valid @RequestBody ContactRequest request) {
+        Contact contact = store.update(CurrentUser.openId(), id, request);
         if (contact == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
         return contact;
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@RequestHeader(value = "X-User-Id", defaultValue = "demo") String ownerId, @PathVariable Long id) {
-        if (!store.delete(ownerId, id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
+    public void delete(@PathVariable Long id) {
+        if (!store.delete(CurrentUser.openId(), id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
     }
 
     private boolean contains(String value, String keyword) { return value.toLowerCase(Locale.ROOT).contains(keyword); }
