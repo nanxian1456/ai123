@@ -1,3 +1,3 @@
 Page({
-  enterHome() { wx.switchTab({ url: "/pages/index/index" }); }
+  enterHome() { wx.navigateTo({ url: "/pages/auth/index" }); }
 });

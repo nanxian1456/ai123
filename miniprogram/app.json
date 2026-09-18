@@ -1,13 +1,16 @@
 {
   "pages": [
     "pages/entry/index",
+    "pages/auth/index",
+    "pages/profile-setup/index",
     "pages/index/index",
     "pages/contacts/index",
     "pages/contact-form/index",
     "pages/contact-detail/index",
     "pages/map/index",
     "pages/graph/index",
-    "pages/relationship-form/index"
+    "pages/relationship-form/index",
+    "pages/me/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#ffffff",
@@ -22,7 +25,8 @@
     "list": [
       { "pagePath": "pages/index/index", "text": "首页" },
       { "pagePath": "pages/contacts/index", "text": "联系人" },
-      { "pagePath": "pages/map/index", "text": "地图" }
+      { "pagePath": "pages/map/index", "text": "地图" },
+      { "pagePath": "pages/me/index", "text": "我的" }
     ]
   },
   "style": "v2",
