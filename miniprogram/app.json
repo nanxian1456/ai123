@@ -9,6 +9,7 @@
     "pages/contact-detail/index",
     "pages/map/index",
     "pages/graph/index",
+    "pages/knowledge-graph/index",
     "pages/relationship-form/index",
     "pages/me/index"
   ],
@@ -30,5 +31,6 @@
     ]
   },
   "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }
