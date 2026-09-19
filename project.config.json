@@ -1,4 +1,9 @@
 {
+  "compileType": "miniprogram",
+  "miniprogramRoot": "ai123-main/miniprogram/",
+  "projectname": "ai-network-map",
+  "description": "AI人脉地图初版",
+  "appid": "wxe1cd412fd6abbd6a",
   "setting": {
     "es6": true,
     "postcss": true,
@@ -14,14 +19,10 @@
     },
     "useCompilerPlugins": false
   },
-  "compileType": "miniprogram",
-  "miniprogramRoot": "ai123-main/miniprogram/",
-  "projectname": "ai-network-map",
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [],
     "include": []
   },
-  "appid": "wxe1cd412fd6abbd6a",
   "editorSetting": {}
 }

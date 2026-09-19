@@ -1,0 +1,14 @@
+<view class="page directory-page">
+  <view class="search"><input placeholder="搜索姓名、单位或职务" value="{{keyword}}" bindinput="onKeyword" confirm-type="search" bindconfirm="search"/><text bindtap="search">搜索</text></view>
+  <view class="filter-row" wx:if="{{city}}"><text>城市：{{city}}</text><text bindtap="clearCity">清除</text></view>
+  <scroll-view class="tag-scroll" scroll-x="true" wx:if="{{tags.length}}"><view class="tag-filter {{selectedTag === '' ? 'active' : ''}}" bindtap="selectTag" data-tag="">全部</view><view class="tag-filter {{selectedTag === item.name ? 'active' : ''}}" wx:for="{{tags}}" wx:key="name" bindtap="selectTag" data-tag="{{item.name}}">{{item.name}} {{item.count}}</view></scroll-view>
+  <scroll-view class="directory" scroll-y="true" scroll-into-view="{{scrollIntoView}}" scroll-with-animation="true" wx:if="{{groups.length}}">
+    <view class="directory-group" wx:for="{{groups}}" wx:key="letter" id="letter-{{item.letter}}">
+      <view class="group-letter">{{item.letter}}</view>
+      <view class="group-card"><view class="item" wx:for="{{item.contacts}}" wx:key="id" wx:for-item="contact" data-id="{{contact.id}}" bindtap="detail"><view class="avatar">{{contact.initial}}</view><view class="info"><view class="name">{{contact.name}}</view><view class="muted">{{contact.position || '未填写职务'}} · {{contact.organization || '未填写单位'}}</view><view class="tags"><text wx:for="{{contact.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text></view></view><view class="place">{{contact.city}}</view></view></view>
+    </view>
+  </scroll-view>
+  <view class="empty" wx:else>暂无联系人，开始添加第一位联系人</view>
+  <view class="letter-index"><view wx:for="{{letters}}" wx:key="letter" data-letter="{{item.letter}}" bindtap="jumpLetter" class="letter {{item.available ? 'available' : ''}}">{{item.letter}}</view></view>
+  <button class="add" bindtap="add">＋ 新增联系人</button>
+</view>
