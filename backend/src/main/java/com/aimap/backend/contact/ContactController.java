@@ -8,6 +8,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Locale;
+import java.text.Collator;
+import java.util.Comparator;
 
 @RestController
 @RequestMapping("/api/contacts")
@@ -26,6 +28,22 @@ public class ContactController {
                 .filter(c -> lowerKeyword.isBlank() || contains(c.name(), lowerKeyword) || contains(c.organization(), lowerKeyword) || contains(c.position(), lowerKeyword))
                 .filter(c -> city.isBlank() || c.city().equals(city))
                 .filter(c -> tag.isBlank() || c.tags().contains(tag))
+                .toList();
+    }
+
+    @GetMapping("/directory")
+    public List<ContactDirectoryItem> directory(@RequestParam(defaultValue = "") String keyword,
+                                                @RequestParam(defaultValue = "") String city,
+                                                @RequestParam(defaultValue = "") String tag) {
+        String ownerId = CurrentUser.openId();
+        String lowerKeyword = keyword.toLowerCase(Locale.ROOT).trim();
+        Collator collator = Collator.getInstance(Locale.CHINA);
+        return store.findAll(ownerId).stream()
+                .filter(c -> lowerKeyword.isBlank() || contains(c.name(), lowerKeyword) || contains(c.organization(), lowerKeyword) || contains(c.position(), lowerKeyword))
+                .filter(c -> city.isBlank() || c.city().equals(city))
+                .filter(c -> tag.isBlank() || c.tags().contains(tag))
+                .map(contact -> ContactDirectoryItem.from(contact, PinyinInitial.of(contact.name())))
+                .sorted(Comparator.comparing(ContactDirectoryItem::initial).thenComparing(ContactDirectoryItem::name, collator))
                 .toList();
     }
 
