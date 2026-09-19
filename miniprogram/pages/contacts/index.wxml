@@ -9,6 +9,6 @@
     </view>
   </scroll-view>
   <view class="empty" wx:else>暂无联系人，开始添加第一位联系人</view>
-  <view class="letter-index" wx:if="{{groups.length}}"><view wx:for="{{letters}}" wx:key="letter" data-letter="{{item.letter}}" bindtap="jumpLetter" class="letter {{item.available ? 'available' : ''}}">{{item.letter}}</view></view>
+  <view class="letter-index"><view wx:for="{{letters}}" wx:key="letter" data-letter="{{item.letter}}" bindtap="jumpLetter" class="letter {{item.available ? 'available' : ''}}">{{item.letter}}</view></view>
   <button class="add" bindtap="add">＋ 新增联系人</button>
 </view>
