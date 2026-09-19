@@ -19,9 +19,9 @@ public class UserProfileStore {
 
     @Transactional
     public UserProfile ensure(String ownerId) {
-        if (repository == null) return testProfiles.computeIfAbsent(ownerId, id -> new UserProfile(id, "", "", "", "", "", "male-1", "", ProfileVisibility.privateByDefault(), false, "TEST0001"));
+        if (repository == null) return testProfiles.computeIfAbsent(ownerId, id -> new UserProfile(id, "", "", "", "", "", "male-1", "", ProfileVisibility.privateByDefault(), false, "123AB456"));
         UserProfileEntity entity = repository.findById(ownerId).orElseGet(() -> new UserProfileEntity(ownerId));
-        if (entity.getContactCode().isBlank()) entity.setContactCode(newContactCode());
+        if (!isContactCode(entity.getContactCode())) entity.setContactCode(newContactCode());
         return toProfile(repository.save(entity));
     }
 
@@ -74,7 +74,7 @@ public class UserProfileStore {
 
     private UserProfileEntity getOrCreate(String ownerId) {
         UserProfileEntity entity = repository.findById(ownerId).orElseGet(() -> new UserProfileEntity(ownerId));
-        if (entity.getContactCode().isBlank()) entity.setContactCode(newContactCode());
+        if (!isContactCode(entity.getContactCode())) entity.setContactCode(newContactCode());
         return entity;
     }
     private UserProfile toProfile(UserProfileEntity entity) {
@@ -82,14 +82,15 @@ public class UserProfileStore {
         return new UserProfile(entity.getOwnerId(), entity.getNickname(), entity.getOrganization(), entity.getPosition(), entity.getCity(), entity.getBio(), entity.getAvatarType(), entity.getAvatarUrl(), visibility, entity.isProfileCompleted(), entity.getContactCode());
     }
     private String newContactCode() {
-        String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         String code;
         do {
-            StringBuilder builder = new StringBuilder(8);
-            for (int i = 0; i < 8; i++) builder.append(alphabet.charAt(random.nextInt(alphabet.length())));
-            code = builder.toString();
+            code = String.format("%03d", random.nextInt(1000))
+                    + "ABCDEFGHJKLMNPQRSTUVWXYZ".charAt(random.nextInt(24))
+                    + "ABCDEFGHJKLMNPQRSTUVWXYZ".charAt(random.nextInt(24))
+                    + String.format("%03d", random.nextInt(1000));
         } while (repository.existsByContactCode(code));
         return code;
     }
+    private boolean isContactCode(String code) { return code != null && code.matches("\\d{3}[A-Z]{2}\\d{3}"); }
     private String value(String value) { return value == null ? "" : value.trim(); }
 }
