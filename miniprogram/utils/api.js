@@ -34,6 +34,17 @@ function request(path, method = "GET", data, retry = true) {
   }));
 }
 
+function uploadAvatar(filePath) {
+  return ensureSession().then((token) => new Promise((resolve, reject) => {
+    wx.uploadFile({ url: `${BASE_URL}/me/avatar`, filePath, name: "file", header: { Authorization: `Bearer ${token}` }, success(response) {
+      let data;
+      try { data = JSON.parse(response.data); } catch (_) { data = null; }
+      if (response.statusCode >= 200 && response.statusCode < 300) resolve(data);
+      else reject(new Error((data && data.detail) || "头像上传失败"));
+    }, fail: () => reject(new Error("无法上传头像，请确认 Java 服务已启动")) });
+  }));
+}
+
 function showError(error) { wx.showToast({ title: error && error.message ? error.message : "操作失败", icon: "none" }); }
 
-module.exports = { request, ensureSession, showError };
+module.exports = { request, ensureSession, uploadAvatar, showError };

@@ -22,4 +22,13 @@ export function request<T>(path: string, method: Method = "GET", data?: unknown,
   }, fail: () => reject(new Error("无法连接后端，请确认 Java 服务已启动")) })));
 }
 
+export function uploadAvatar<T>(filePath: string): Promise<T> {
+  return ensureSession().then(token => new Promise<T>((resolve, reject) => wx.uploadFile({ url: `${BASE_URL}/me/avatar`, filePath, name: "file", header: { Authorization: `Bearer ${token}` }, success: response => {
+    let data: T | null = null;
+    try { data = JSON.parse(response.data) as T; } catch (_) { data = null; }
+    if (response.statusCode >= 200 && response.statusCode < 300 && data) resolve(data);
+    else reject(new Error((data as { detail?: string } | null)?.detail || "头像上传失败"));
+  }, fail: () => reject(new Error("无法上传头像，请确认 Java 服务已启动")) })));
+}
+
 export function showError(error: unknown) { wx.showToast({ title: error instanceof Error ? error.message : "操作失败", icon: "none" }); }

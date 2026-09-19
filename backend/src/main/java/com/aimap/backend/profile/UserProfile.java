@@ -7,5 +7,7 @@ public record UserProfile(
         String position,
         String city,
         String bio,
+        String avatarType,
+        String avatarUrl,
         boolean profileCompleted
 ) { }
