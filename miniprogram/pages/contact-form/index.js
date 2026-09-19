@@ -4,7 +4,7 @@ Page({
   data: {
     id: "",
     form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" },
-    aiText: "", extracting: false
+    aiText: "", extracting: false, importCode: "", importing: false
   },
   onLoad(query) { if (query.id) this.loadContact(query.id); },
   loadContact(id) {
@@ -15,6 +15,16 @@ Page({
   },
   input(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
   aiInput(event) { this.setData({ aiText: event.detail.value }); },
+  importCodeInput(event) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
+  importUser() {
+    const code = this.data.importCode.trim();
+    if (!code) { wx.showToast({ title: "请输入对方导入码", icon: "none" }); return; }
+    this.setData({ importing: true });
+    request(`/users/importable/${encodeURIComponent(code)}`).then((profile) => {
+      this.setData({ "form.name": profile.nickname, "form.organization": profile.organization || "", "form.position": profile.position || "", "form.city": profile.city || "", "form.note": profile.bio || "" });
+      wx.showToast({ title: "已导入对方公开资料", icon: "success" });
+    }).catch(showError).finally(() => this.setData({ importing: false }));
+  },
   extract() {
     if (!this.data.aiText.trim()) { wx.showToast({ title: "请先粘贴人物介绍", icon: "none" }); return; }
     this.setData({ extracting: true });

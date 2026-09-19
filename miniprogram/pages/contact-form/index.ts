@@ -1,7 +1,7 @@
 import { request, showError } from "../../utils/api";
 
 Page({
-  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", extracting: false },
+  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", extracting: false, importCode: "", importing: false },
   onLoad(query: Record<string, string>) { if (query.id) this.loadContact(query.id); },
   async loadContact(id: string) {
     try {
@@ -12,6 +12,17 @@ Page({
   },
   input(event: any) { const field = event.currentTarget.dataset.field; this.setData({ [`form.${field}`]: event.detail.value }); },
   aiInput(event: any) { this.setData({ aiText: event.detail.value }); },
+  importCodeInput(event: any) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
+  async importUser() {
+    const code = this.data.importCode.trim();
+    if (!code) return wx.showToast({ title: "请输入对方导入码", icon: "none" });
+    this.setData({ importing: true });
+    try {
+      const profile = await request<any>(`/users/importable/${encodeURIComponent(code)}`);
+      this.setData({ "form.name": profile.nickname, "form.organization": profile.organization || "", "form.position": profile.position || "", "form.city": profile.city || "", "form.note": profile.bio || "" });
+      wx.showToast({ title: "已导入对方公开资料", icon: "success" });
+    } catch (error) { showError(error); } finally { this.setData({ importing: false }); }
+  },
   async extract() {
     if (!this.data.aiText.trim()) return wx.showToast({ title: "请先粘贴人物介绍", icon: "none" });
     this.setData({ extracting: true });

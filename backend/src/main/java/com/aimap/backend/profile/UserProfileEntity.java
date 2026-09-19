@@ -18,6 +18,7 @@ public class UserProfileEntity {
     @Column(nullable = false, length = 500) private String bio = "";
     @Column(nullable = false, length = 20) private String avatarType = "male-1";
     @Column(length = 500) private String avatarUrl = "";
+    @Column(name = "contact_code", unique = true, length = 12) private String contactCode = "";
     @Column(nullable = false) private boolean avatarVisible;
     @Column(nullable = false) private boolean nicknameVisible;
     @Column(nullable = false) private boolean organizationVisible;
@@ -43,6 +44,8 @@ public class UserProfileEntity {
     public void setAvatarType(String value) { avatarType = value; }
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String value) { avatarUrl = value; }
+    public String getContactCode() { return contactCode; }
+    public void setContactCode(String value) { contactCode = value; }
     public boolean isAvatarVisible() { return avatarVisible; }
     public void setAvatarVisible(boolean value) { avatarVisible = value; }
     public boolean isNicknameVisible() { return nicknameVisible; }

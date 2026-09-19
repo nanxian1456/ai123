@@ -10,5 +10,6 @@ public record UserProfile(
         String avatarType,
         String avatarUrl,
         ProfileVisibility visibility,
-        boolean profileCompleted
+        boolean profileCompleted,
+        String contactCode
 ) { }

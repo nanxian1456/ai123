@@ -14,6 +14,7 @@ Page({
   setProfile(profile) { const normalized = normalizeProfile(profile); this.setData({ profile: normalized, visibilityItems: visibilityItems(normalized.visibility) }); },
   load() { request("/me").then((profile) => { if (!profile.profileCompleted) wx.navigateTo({ url: "/pages/profile-setup/index" }); else this.setProfile(profile); }).catch(showError); },
   edit() { wx.navigateTo({ url: "/pages/profile-setup/index?mode=edit" }); },
+  copyContactCode() { if (this.data.profile && this.data.profile.contactCode) wx.setClipboardData({ data: this.data.profile.contactCode }); },
   changeVisibility(event) {
     if (this.data.savingVisibility || !this.data.profile) return;
     const visibility = { ...this.data.profile.visibility, [event.currentTarget.dataset.field]: event.detail.value };
