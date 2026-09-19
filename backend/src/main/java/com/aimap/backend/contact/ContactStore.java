@@ -1,6 +1,7 @@
 package com.aimap.backend.contact;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -16,9 +17,15 @@ public class ContactStore {
     private final Map<Long, Relationship> relationships = new ConcurrentHashMap<>();
     private final AtomicLong contactSequence = new AtomicLong(100);
     private final AtomicLong relationshipSequence = new AtomicLong(1000);
+    private final boolean demoDataEnabled;
+
+    public ContactStore(@Value("${demo-data.enabled:false}") boolean demoDataEnabled) {
+        this.demoDataEnabled = demoDataEnabled;
+    }
 
     @PostConstruct
     void seed() {
+        if (!demoDataEnabled) return;
         save("demo", new ContactRequest("张教授", "南京邮电大学", "教授", "南京", "江苏", "13800000001", "zhang@example.com", "无线感知方向合作伙伴", List.of("无线感知", "高校专家")));
         save("demo", new ContactRequest("王博士", "南京邮电大学", "博士生", "南京", "江苏", "13800000002", "wang@example.com", "张教授的学生", List.of("人工智能", "研究生")));
         save("demo", new ContactRequest("赵总", "星图科技", "联合创始人", "上海", "上海", "13800000003", "zhao@example.com", "产业合作联系人", List.of("产业合作", "创业")));

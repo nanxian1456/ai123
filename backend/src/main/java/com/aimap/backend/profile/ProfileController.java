@@ -66,10 +66,12 @@ public class ProfileController {
 
         String extension = contentType.equals(MediaType.IMAGE_PNG_VALUE) ? "png" : "jpg";
         String filename = UUID.randomUUID() + "." + extension;
+        Path targetPath = avatarStorageDirectory.resolve(filename).normalize();
+        if (!targetPath.startsWith(avatarStorageDirectory)) throw new AvatarUploadException("非法的文件路径");
         try {
             Files.createDirectories(avatarStorageDirectory);
             try (InputStream input = file.getInputStream()) {
-                Files.copy(input, avatarStorageDirectory.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(input, targetPath, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException exception) {
             throw new AvatarUploadException("头像保存失败");

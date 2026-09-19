@@ -13,5 +13,5 @@ public record ContactRequest(
         @Size(max = 30) String phone,
         @Size(max = 100) String email,
         @Size(max = 500) String note,
-        List<@Size(max = 20) String> tags
+        @Size(max = 10, message = "标签最多 10 个") List<@Size(max = 20) String> tags
 ) {}

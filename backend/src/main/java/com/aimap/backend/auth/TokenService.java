@@ -13,7 +13,12 @@ import java.util.Base64;
 public class TokenService {
     private final AuthProperties properties;
 
-    public TokenService(AuthProperties properties) { this.properties = properties; }
+    public TokenService(AuthProperties properties) {
+        if (properties.tokenSecret() == null || properties.tokenSecret().isBlank()) {
+            throw new IllegalStateException("必须通过 AUTH_TOKEN_SECRET 配置令牌签名密钥");
+        }
+        this.properties = properties;
+    }
 
     public String issue(String openId) {
         long expiresAt = Instant.now().plusSeconds(properties.tokenTtlHours() * 3600).getEpochSecond();

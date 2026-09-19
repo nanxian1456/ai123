@@ -25,7 +25,7 @@
 .\mvnw.cmd spring-boot:run
 ```
 
-服务启动后访问地址为 `http://127.0.0.1:8080`。初版使用内存数据，重启服务会恢复 4 条演示联系人。
+服务启动后访问地址为 `http://127.0.0.1:8080`。初版使用内存数据，重启服务会清空用户资料和联系人。
 
 ## 微信登录与用户隔离
 
@@ -40,6 +40,15 @@ $env:WECHAT_APP_ID = "你的小程序AppID"
 $env:WECHAT_APP_SECRET = "你的小程序AppSecret"
 $env:AUTH_TOKEN_SECRET = "至少32位的随机字符串"
 ```
+
+后端不会提供默认令牌密钥；缺少 `AUTH_TOKEN_SECRET` 时将拒绝启动。生产环境还应设置实际网页来源和公开地址：
+
+```powershell
+$env:CORS_ALLOWED_ORIGIN_PATTERNS = "https://你的管理后台域名"
+$env:APP_PUBLIC_BASE_URL = "https://你的后端域名"
+```
+
+微信小程序原生请求不受浏览器 CORS 限制。演示联系人默认关闭；仅需要本地演示时设置 `$env:DEMO_DATA_ENABLED = "true"` 后启动服务。
 
 同时将根目录 `project.config.json` 的 `appid` 替换为同一个小程序 AppID，在微信公众平台配置生产后端的 HTTPS 请求合法域名。未配置 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 时，登录接口会返回“微信登录尚未配置 AppID 和 Secret”，不会回退为共享演示用户。
 
