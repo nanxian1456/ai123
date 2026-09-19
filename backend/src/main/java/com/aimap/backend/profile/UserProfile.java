@@ -9,5 +9,6 @@ public record UserProfile(
         String bio,
         String avatarType,
         String avatarUrl,
+        ProfileVisibility visibility,
         boolean profileCompleted
 ) { }

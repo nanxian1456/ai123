@@ -15,7 +15,9 @@ class UserProfileStoreTests {
         assertTrue(store.ensure("wx-user-one").profileCompleted());
         assertEquals("小王", store.ensure("wx-user-one").nickname());
         assertEquals("female-1", store.ensure("wx-user-one").avatarType());
+        assertFalse(store.ensure("wx-user-one").visibility().nickname());
         assertFalse(store.ensure("wx-user-two").profileCompleted());
         assertEquals("", store.ensure("wx-user-two").nickname());
+        assertFalse(store.ensure("wx-user-two").visibility().avatar());
     }
 }

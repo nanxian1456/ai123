@@ -49,6 +49,11 @@ public class ProfileController {
     @PatchMapping
     public UserProfile update(@Valid @RequestBody UserProfileRequest request) { return profiles.update(CurrentUser.openId(), request); }
 
+    @PatchMapping("/visibility")
+    public UserProfile updateVisibility(@RequestBody ProfileVisibilityRequest request) {
+        return profiles.updateVisibility(CurrentUser.openId(), request.toVisibility());
+    }
+
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfile uploadAvatar(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024) throw new AvatarUploadException("请上传不超过 5MB 的图片");
