@@ -1,0 +1,2 @@
+import { request, showError } from "../../utils/api";
+Page({ data: { profile: null as any }, onShow() { this.load(); }, async load() { try { const profile = await request<any>("/me"); if (!profile.profileCompleted) wx.navigateTo({ url: "/pages/profile-setup/index" }); else this.setData({ profile }); } catch (error) { showError(error); } }, edit() { wx.navigateTo({ url: "/pages/profile-setup/index?mode=edit" }); } });

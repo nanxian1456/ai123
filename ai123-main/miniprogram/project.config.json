@@ -1,0 +1,8 @@
+{
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "projectname": "ai-network-map",
+  "description": "AI人脉地图初版",
+  "appid": "wxe1cd412fd6abbd6a",
+  "setting": { "es6": true, "enhance": true, "postcss": true, "minified": false }
+}

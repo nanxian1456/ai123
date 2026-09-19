@@ -1,0 +1,5 @@
+# WorkBuddy workspace memory
+.workbuddy/
+
+# Local/private WeChat devtool config
+project.private.config.json
