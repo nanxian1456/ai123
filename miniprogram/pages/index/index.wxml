@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="hero"><view class="eyebrow">PERSONAL RELATIONSHIP CRM</view><view class="hero-title">让关系，看得见</view><view class="hero-text">联系人、单位、地区与合作关系集中管理</view></view>
+  <view class="hero"><view class="settings-button" bindtap="openSettings">设置</view><view class="eyebrow">PERSONAL RELATIONSHIP CRM</view><view class="hero-title">让关系，看得见</view><view class="hero-text">联系人、单位、地区与合作关系集中管理</view></view>
   <view class="stats" wx:if="{{dashboard}}"><view class="stat"><text class="num">{{dashboard.contactCount}}</text><text>联系人</text></view><view class="stat"><text class="num">{{dashboard.cityCount}}</text><text>城市</text></view><view class="stat"><text class="num">{{dashboard.organizationCount}}</text><text>单位</text></view></view>
   <view class="status-card" wx:if="{{loading}}">正在同步人脉数据</view><view class="status-card error" wx:if="{{loadError}}">{{loadError}}</view>
   <view class="section-head"><view class="section-title">快速开始</view><view class="section-subtitle">让信息沉淀成关系资产</view></view>

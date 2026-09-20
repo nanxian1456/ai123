@@ -11,6 +11,7 @@
     "pages/graph/index",
     "pages/knowledge-graph/index",
     "pages/relationship-form/index",
+    "pages/settings/index",
     "pages/me/index"
   ],
   "window": {
