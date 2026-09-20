@@ -12,6 +12,7 @@
     "pages/knowledge-graph/index",
     "pages/relationship-form/index",
     "pages/settings/index",
+    "pages/logout/index",
     "pages/me/index"
   ],
   "window": {

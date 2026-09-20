@@ -8,6 +8,7 @@ const visibilityItems = (visibility: any) => VISIBILITY_FIELDS.map(item => ({ ..
 Page({
   data: { profile: null as any, visibilityItems: [] as any[], savingVisibility: false },
   onShow() { this.load(); },
+  openLogout() { wx.navigateTo({ url: "/pages/logout/index" }); },
   async load() { try { const profile = normalizeProfile(await request<any>("/me")); this.setData({ profile, visibilityItems: visibilityItems(profile.visibility) }); } catch (error) { showError(error); } },
   changeVisibility(event: any) {
     if (this.data.savingVisibility || !this.data.profile) return;

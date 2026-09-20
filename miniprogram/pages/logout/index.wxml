@@ -1,0 +1,1 @@
+<view class="page logout-page"><view class="logout-card"><view class="logout-title">确认退出登录？</view><text>退出后将回到微信登录页面。你的个人资料和联系人数据会保留。</text><view class="logout-actions"><button class="cancel" bindtap="cancel">取消</button><button class="confirm" loading="{{loggingOut}}" bindtap="confirmLogout">确认退出</button></view></view></view>

@@ -12,6 +12,7 @@ const visibilityItems = (visibility) => VISIBILITY_FIELDS.map((item) => ({ ...it
 Page({
   data: { profile: null, visibilityItems: [], savingVisibility: false },
   onShow() { this.load(); },
+  openLogout() { wx.navigateTo({ url: "/pages/logout/index" }); },
   load() {
     request("/me").then((profile) => {
       const normalized = normalizeProfile(profile);
