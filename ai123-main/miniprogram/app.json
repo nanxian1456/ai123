@@ -8,6 +8,7 @@
     "pages/contact-form/index",
     "pages/contact-detail/index",
     "pages/map/index",
+    "pages/knowledge-graph/index",
     "pages/graph/index",
     "pages/relationship-form/index",
     "pages/me/index"
@@ -26,6 +27,7 @@
       { "pagePath": "pages/index/index", "text": "首页" },
       { "pagePath": "pages/contacts/index", "text": "联系人" },
       { "pagePath": "pages/map/index", "text": "地图" },
+      { "pagePath": "pages/knowledge-graph/index", "text": "知识图谱" },
       { "pagePath": "pages/me/index", "text": "我的" }
     ]
   },
