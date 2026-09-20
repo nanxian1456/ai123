@@ -1,6 +1,6 @@
 {
   "compileType": "miniprogram",
-  "miniprogramRoot": "ai123-main/miniprogram/",
+  "miniprogramRoot": "miniprogram/",
   "projectname": "ai-network-map",
   "description": "AI人脉地图初版",
   "appid": "wxe1cd412fd6abbd6a",
