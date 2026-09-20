@@ -1,0 +1,1 @@
+<view class="settings-bar"><button class="settings-control" bindtap="openSettings">设置</button></view>

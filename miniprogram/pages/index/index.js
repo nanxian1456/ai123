@@ -10,7 +10,6 @@ Page({
       this.setData({ dashboard, loading: false });
     }).catch(() => this.setData({ loading: false, loadError: "登录或后端连接失败" }));
   },
-  openSettings() { wx.navigateTo({ url: "/pages/settings/index" }); },
   goAdd() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
   goContacts() { wx.switchTab({ url: "/pages/contacts/index" }); },
   goMap() { wx.switchTab({ url: "/pages/map/index" }); },

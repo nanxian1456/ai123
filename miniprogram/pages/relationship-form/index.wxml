@@ -1,4 +1,5 @@
 <view class="page">
+  <settings-entry />
   <view class="flow"><view class="flow-step active">1</view><view></view><view class="flow-step">2</view><view></view><view class="flow-step">3</view></view>
   <view class="intro"><view>建立人物关系</view><text>选择双方联系人并记录关系类型</text></view>
   <view class="source-card" wx:if="{{source}}"><text>当前联系人</text><view>{{source.name}}</view><text>{{source.position || '未填写职务'}} · {{source.organization || '未填写单位'}}</text></view>

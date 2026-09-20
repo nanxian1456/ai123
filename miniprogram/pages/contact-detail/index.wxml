@@ -1,4 +1,5 @@
 <view class="page" wx:if="{{contact}}">
+  <settings-entry />
   <view class="profile-hero"><view class="avatar">{{contact.initial}}</view><view class="profile-main"><view class="profile-name">{{contact.name}}</view><view class="profile-role">{{contact.position || '未填写职务'}} · {{contact.organization || '未填写单位'}}</view><view class="tag-row"><text wx:for="{{contact.tags}}" wx:key="*this">{{item}}</text></view></view><view class="status">已联系人</view></view>
   <view class="quick-actions"><view bindtap="call"><text>☎</text><text>打电话</text></view><view bindtap="graph"><text>⌘</text><text>关系图谱</text></view><view bindtap="edit"><text>✎</text><text>编辑资料</text></view></view>
   <view class="section-head"><text>联系人信息</text><text>完整资料</text></view>

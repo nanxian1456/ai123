@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "关系图谱" }
+{ "navigationBarTitleText": "关系图谱", "usingComponents": { "settings-entry": "/components/settings-entry/index" } }

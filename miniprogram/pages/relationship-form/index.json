@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "新增关系" }
+{ "navigationBarTitleText": "新增关系", "usingComponents": { "settings-entry": "/components/settings-entry/index" } }

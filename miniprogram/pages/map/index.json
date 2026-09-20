@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "人脉地图" }
+{ "navigationBarTitleText": "人脉地图", "usingComponents": { "settings-entry": "/components/settings-entry/index" } }
