@@ -16,6 +16,12 @@ export function ensureSession(force = false): Promise<string> {
 
 export function getStoredToken(): string { return (wx.getStorageSync(TOKEN_KEY) as string) || ""; }
 export function clearSession(): void { wx.removeStorageSync(TOKEN_KEY); }
+export function hasProfileData(profile: any): boolean {
+  if (!profile) return false;
+  if (profile.profileCompleted) return true;
+  return [profile.nickname, profile.organization, profile.position, profile.city, profile.bio, profile.avatarUrl]
+    .some(value => typeof value === "string" && value.trim().length > 0);
+}
 export function validateSession<T>(): Promise<T> {
   const token = getStoredToken();
   if (!token) return Promise.reject(new Error("NO_SESSION"));

@@ -1,13 +1,19 @@
-import { validateSession, clearSession, showError } from "../../utils/api";
+import { validateSession, clearSession, hasProfileData, showError } from "../../utils/api";
 
 Page({
   data: { checking: false },
   enterHome() {
     if (this.data.checking) return;
     this.setData({ checking: true });
-    const openNext = (profile: any) => wx.reLaunch({ url: profile.profileCompleted ? "/pages/index/index" : "/pages/profile-setup/index" });
     return validateSession<any>()
-      .then(openNext)
+      .then((profile: any) => {
+        if (hasProfileData(profile)) {
+          wx.reLaunch({ url: "/pages/index/index" });
+          return;
+        }
+        clearSession();
+        wx.reLaunch({ url: "/pages/auth/index" });
+      })
       .catch((error: Error) => {
         if (error.message !== "NO_SESSION" && error.message !== "SESSION_INVALID") {
           showError(error);

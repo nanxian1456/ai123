@@ -1,13 +1,19 @@
-const { validateSession, clearSession, showError } = require("../../utils/api");
+const { validateSession, clearSession, hasProfileData, showError } = require("../../utils/api");
 
 Page({
   data: { checking: false },
   enterHome() {
     if (this.data.checking) return;
     this.setData({ checking: true });
-    const openNext = (profile) => wx.reLaunch({ url: profile.profileCompleted ? "/pages/index/index" : "/pages/profile-setup/index" });
     return validateSession()
-      .then(openNext)
+      .then((profile) => {
+        if (hasProfileData(profile)) {
+          wx.reLaunch({ url: "/pages/index/index" });
+          return;
+        }
+        clearSession();
+        wx.reLaunch({ url: "/pages/auth/index" });
+      })
       .catch((error) => {
         if (error.message !== "NO_SESSION" && error.message !== "SESSION_INVALID") {
           showError(error);

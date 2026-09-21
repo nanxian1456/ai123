@@ -26,6 +26,12 @@ function ensureSession(force = false) {
 
 function getStoredToken() { return wx.getStorageSync(TOKEN_KEY) || ""; }
 function clearSession() { wx.removeStorageSync(TOKEN_KEY); }
+function hasProfileData(profile) {
+  if (!profile) return false;
+  if (profile.profileCompleted) return true;
+  return [profile.nickname, profile.organization, profile.position, profile.city, profile.bio, profile.avatarUrl]
+    .some((value) => typeof value === "string" && value.trim().length > 0);
+}
 
 function validateSession() {
   const token = getStoredToken();
@@ -61,4 +67,4 @@ function uploadAvatar(filePath) {
 
 function showError(error) { wx.showToast({ title: error && error.message ? error.message : "操作失败", icon: "none" }); }
 
-module.exports = { request, ensureSession, validateSession, getStoredToken, clearSession, uploadAvatar, showError };
+module.exports = { request, ensureSession, validateSession, getStoredToken, clearSession, hasProfileData, uploadAvatar, showError };
