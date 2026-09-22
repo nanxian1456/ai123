@@ -6,10 +6,12 @@ const normalizeProfile = (profile: any) => ({ ...profile, visibility: { ...PRIVA
 const visibilityItems = (visibility: any) => VISIBILITY_FIELDS.map(item => ({ ...item, enabled: visibility[item.field] }));
 
 Page({
-  data: { profile: null as any, visibilityItems: [] as any[], savingVisibility: false },
+  data: { profile: null as any, profileInitial: "我", visibilityItems: [] as any[], savingVisibility: false },
   onShow() { this.load(); },
+  editProfile() { wx.navigateTo({ url: "/pages/profile-setup/index?mode=edit" }); },
   openLogout() { wx.navigateTo({ url: "/pages/logout/index" }); },
-  async load() { try { const profile = normalizeProfile(await request<any>("/me")); this.setData({ profile, visibilityItems: visibilityItems(profile.visibility) }); } catch (error) { showError(error); } },
+  copyContactCode() { if (this.data.profile?.contactCode) wx.setClipboardData({ data: this.data.profile.contactCode }); },
+  async load() { try { const profile = normalizeProfile(await request<any>("/me")); this.setData({ profile, profileInitial: profile.nickname ? profile.nickname.slice(0, 1) : "我", visibilityItems: visibilityItems(profile.visibility) }); } catch (error) { showError(error); } },
   changeVisibility(event: any) {
     if (this.data.savingVisibility || !this.data.profile) return;
     const visibility = { ...this.data.profile.visibility, [event.currentTarget.dataset.field]: event.detail.value };

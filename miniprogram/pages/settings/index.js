@@ -10,13 +10,19 @@ const normalizeProfile = (profile) => ({ ...profile, visibility: { ...PRIVATE_VI
 const visibilityItems = (visibility) => VISIBILITY_FIELDS.map((item) => ({ ...item, enabled: visibility[item.field] }));
 
 Page({
-  data: { profile: null, visibilityItems: [], savingVisibility: false },
+  data: { profile: null, profileInitial: "我", visibilityItems: [], savingVisibility: false },
   onShow() { this.load(); },
+  editProfile() { wx.navigateTo({ url: "/pages/profile-setup/index?mode=edit" }); },
   openLogout() { wx.navigateTo({ url: "/pages/logout/index" }); },
+  copyContactCode() {
+    if (this.data.profile && this.data.profile.contactCode) {
+      wx.setClipboardData({ data: this.data.profile.contactCode });
+    }
+  },
   load() {
     request("/me").then((profile) => {
       const normalized = normalizeProfile(profile);
-      this.setData({ profile: normalized, visibilityItems: visibilityItems(normalized.visibility) });
+      this.setData({ profile: normalized, profileInitial: normalized.nickname ? normalized.nickname.slice(0, 1) : "我", visibilityItems: visibilityItems(normalized.visibility) });
     }).catch(showError);
   },
   changeVisibility(event) {
