@@ -15,7 +15,9 @@
 - 联系人维护：编辑资料、标签筛选、删除联系人及关联关系。
 - 人脉地图：按联系人工作城市聚合展示。
 - 人物关系：新增、删除关系，围绕联系人展示一层关系节点和关系类型。
-- AI 信息预填：本地演示解析器，生产环境可替换为 OCR 和大模型供应商。
+- 数据持久化：用户资料、联系人、标签和关系均通过 JPA 保存到数据库。
+- AI 信息预填：通过可配置的 OpenAI 兼容接口提取联系人结构化信息。
+- 后端基础能力：统一参数校验和异常响应、请求追踪日志、缓存、分页及 API 限流。
 
 ## 启动后端
 
@@ -25,13 +27,13 @@
 .\mvnw.cmd spring-boot:run
 ```
 
-服务启动后访问地址为 `http://127.0.0.1:8080`。初版使用内存数据，重启服务会清空用户资料和联系人。
+服务启动后访问地址为 `http://127.0.0.1:8080`。默认使用用户目录下的 H2 文件数据库，后端重启后用户资料、联系人和关系数据仍会保留。
 
 ## 微信登录与用户隔离
 
 小程序启动时会调用 `wx.login`，后端使用微信返回的临时 `code` 换取 `openid`，再签发七天有效的访问令牌。联系人、标签、统计、地区和关系接口均从该令牌中读取用户身份，不能再通过客户端传入用户 ID。
 
-首次登录会进入个人资料完善页，填写昵称、单位、职务、城市和个人简介；“我的”页面可查看与修改这部分资料。当前个人资料和联系人均为内存数据，重启后端后会清空，接入 MySQL 后可持久保存。
+首次登录会进入个人资料完善页，填写昵称、单位、职务、城市和个人简介；“我的”页面可查看与修改这部分资料。个人资料、公开设置、联系人、标签和关系均按 `openid` 隔离并持久保存。
 
 部署前请在后端运行环境配置下列环境变量，不要将真实值提交到 Git：
 
@@ -40,6 +42,16 @@ $env:WECHAT_APP_ID = "你的小程序AppID"
 $env:WECHAT_APP_SECRET = "你的小程序AppSecret"
 $env:AUTH_TOKEN_SECRET = "至少32位的随机字符串"
 ```
+
+启用 AI 联系人提取时，还需配置 OpenAI 兼容服务。`AI_BASE_URL` 应填写到 API 的 `/v1` 层级，后端会调用 `/chat/completions`：
+
+```powershell
+$env:AI_API_KEY = "你的AI服务密钥"
+$env:AI_BASE_URL = "https://api.openai.com/v1"
+$env:AI_MODEL = "gpt-4o-mini"
+```
+
+未配置 `AI_API_KEY` 时，其他功能仍可使用，AI 提取接口会明确返回“AI 提取服务尚未配置”。真实密钥不得写入配置文件或提交到 Git。
 
 后端不会提供默认令牌密钥；缺少 `AUTH_TOKEN_SECRET` 时将拒绝启动。生产环境还应设置实际网页来源和公开地址：
 
@@ -67,12 +79,20 @@ $env:APP_PUBLIC_BASE_URL = "https://你的后端域名"
 | --- | --- | --- |
 | GET | `/api/dashboard` | 首页统计 |
 | GET、POST | `/api/contacts` | 联系人列表、新增 |
+| GET | `/api/contacts/page?page=0&size=20` | 联系人分页查询 |
 | GET、PATCH、DELETE | `/api/contacts/{id}` | 联系人详情、修改、删除 |
 | GET | `/api/maps/cities` | 城市分布 |
 | GET | `/api/graphs/contacts/{id}` | 一层关系图谱 |
 | POST | `/api/relationships` | 新增关系 |
-| POST | `/api/ai/extract` | 演示版文本提取 |
+| POST | `/api/ai/extract` | AI 联系人信息提取 |
 
-## 下一步
+## 测试
 
-将 `ContactStore` 替换为 MySQL 持久化实体和 Repository；接入微信登录、对象存储、名片 OCR 及大模型；再根据团队使用需求增加角色权限与审计。
+后端测试使用独立的内存 H2，不会读取或修改本机正式数据：
+
+```powershell
+Set-Location backend
+.\mvnw.cmd test
+```
+
+测试完成后，覆盖率报告位于 `backend/target/site/jacoco/index.html`。

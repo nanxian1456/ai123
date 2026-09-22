@@ -1,118 +1,75 @@
 package com.aimap.backend.contact;
 
+import com.aimap.backend.ai.AiExtractionRequest;
+import com.aimap.backend.ai.AiExtractionResponse;
+import com.aimap.backend.ai.AiExtractionService;
 import com.aimap.backend.auth.CurrentUser;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@Validated
 public class InsightController {
-    private final ContactStore store;
-    public InsightController(ContactStore store) { this.store = store; }
+    private final ContactService contacts;
+    private final InsightService insights;
+    private final AiExtractionService aiExtraction;
+
+    public InsightController(ContactService contacts, InsightService insights, AiExtractionService aiExtraction) {
+        this.contacts = contacts;
+        this.insights = insights;
+        this.aiExtraction = aiExtraction;
+    }
 
     @GetMapping("/dashboard")
-    public Map<String, Object> dashboard() {
-        String ownerId = CurrentUser.openId();
-        List<Contact> contacts = store.findAll(ownerId);
-        long organizations = contacts.stream().map(Contact::organization).filter(s -> !s.isBlank()).distinct().count();
-        long cities = contacts.stream().map(Contact::city).filter(s -> !s.isBlank()).distinct().count();
-        return Map.of("contactCount", contacts.size(), "organizationCount", organizations, "cityCount", cities, "recentContacts", contacts.stream().sorted(Comparator.comparing(Contact::id).reversed()).limit(3).toList());
-    }
+    public Map<String, Object> dashboard() { return insights.dashboard(CurrentUser.openId()); }
 
     @GetMapping("/maps/cities")
-    public List<Map<String, Object>> cities() {
-        String ownerId = CurrentUser.openId();
-        Map<String, Long> counts = new TreeMap<>();
-        for (Contact contact : store.findAll(ownerId)) if (!contact.city().isBlank()) counts.merge(contact.city(), 1L, Long::sum);
-        return counts.entrySet().stream().map(entry -> Map.<String, Object>of("name", entry.getKey(), "count", entry.getValue())).toList();
-    }
+    public List<Map<String, Object>> cities() { return insights.cities(CurrentUser.openId()); }
 
     @GetMapping("/tags")
-    public List<Map<String, Object>> tags() {
-        String ownerId = CurrentUser.openId();
-        Map<String, Long> counts = new TreeMap<>();
-        for (Contact contact : store.findAll(ownerId)) {
-            contact.tags().forEach(tag -> counts.merge(tag, 1L, Long::sum));
-        }
-        return counts.entrySet().stream().map(entry -> Map.<String, Object>of("name", entry.getKey(), "count", entry.getValue())).toList();
-    }
+    public List<Map<String, Object>> tags() { return insights.tags(CurrentUser.openId()); }
 
     @GetMapping("/organizations")
-    public List<Map<String, Object>> organizations() {
-        String ownerId = CurrentUser.openId();
-        Map<String, Long> counts = new TreeMap<>();
-        for (Contact contact : store.findAll(ownerId)) {
-            if (!contact.organization().isBlank()) counts.merge(contact.organization(), 1L, Long::sum);
-        }
-        return counts.entrySet().stream().map(entry -> Map.<String, Object>of("name", entry.getKey(), "count", entry.getValue())).toList();
-    }
+    public List<Map<String, Object>> organizations() { return insights.organizations(CurrentUser.openId()); }
 
     @GetMapping("/contacts/{id}/relationships")
-    public List<Map<String, Object>> contactRelationships(@PathVariable Long id) {
-        String ownerId = CurrentUser.openId();
-        if (store.findOne(ownerId, id) == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
-        return store.relationshipsFor(ownerId).stream()
-                .filter(relationship -> relationship.sourceId().equals(id) || relationship.targetId().equals(id))
-                .map(relationship -> {
-                    boolean outgoing = relationship.sourceId().equals(id);
-                    Contact other = store.findOne(ownerId, outgoing ? relationship.targetId() : relationship.sourceId());
-                    String label = outgoing ? relationship.type() : reverseLabel(relationship.type());
-                    String summary = relationship.note().isBlank() ? other.organization() : other.organization().isBlank() ? relationship.note() : other.organization() + " · " + relationship.note();
-                    return Map.<String, Object>of(
-                            "id", relationship.id(), "type", relationship.type(), "label", label, "summary", summary,
-                            "other", Map.of("id", other.id(), "name", other.name(), "organization", other.organization())
-                    );
-                }).toList();
+    public List<Map<String, Object>> contactRelationships(@PathVariable @Positive Long id) {
+        return insights.contactRelationships(CurrentUser.openId(), id);
     }
 
     @GetMapping("/graphs/contacts/{id}")
-    public Map<String, Object> graph(@PathVariable Long id) {
-        String ownerId = CurrentUser.openId();
-        Contact center = store.findOne(ownerId, id);
-        if (center == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "联系人不存在");
-        List<Relationship> edges = store.relationshipsFor(ownerId).stream().filter(r -> r.sourceId().equals(id) || r.targetId().equals(id)).toList();
-        Set<Long> ids = new LinkedHashSet<>(); ids.add(id);
-        edges.forEach(r -> { ids.add(r.sourceId()); ids.add(r.targetId()); });
-        List<Map<String, Object>> nodes = ids.stream().map(contactId -> {
-            Contact contact = store.findOne(ownerId, contactId);
-            return Map.<String, Object>of("id", contact.id(), "name", contact.name(), "organization", contact.organization(), "isCenter", contact.id().equals(id));
-        }).toList();
-        return Map.of("nodes", nodes, "edges", edges);
+    public Map<String, Object> graph(@PathVariable @Positive Long id) {
+        return insights.graph(CurrentUser.openId(), id);
     }
 
     @PostMapping("/relationships")
     @ResponseStatus(HttpStatus.CREATED)
-    public Relationship createRelationship(@jakarta.validation.Valid @RequestBody RelationshipRequest request) {
-        Relationship relationship = store.saveRelationship(CurrentUser.openId(), request);
-        if (relationship == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "关系对象无效");
-        return relationship;
+    public Relationship createRelationship(@Valid @RequestBody RelationshipRequest request) {
+        return contacts.saveRelationship(CurrentUser.openId(), request);
     }
 
     @DeleteMapping("/relationships/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteRelationship(@PathVariable Long id) {
-        if (!store.deleteRelationship(CurrentUser.openId(), id)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "关系不存在");
+    public void deleteRelationship(@PathVariable @Positive Long id) {
+        contacts.deleteRelationship(CurrentUser.openId(), id);
     }
 
     @PostMapping("/ai/extract")
-    public Map<String, Object> extract(@RequestBody Map<String, String> body) {
-        String source = body.getOrDefault("text", "").trim();
-        if (source.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "待提取文本不能为空");
-        String city = source.contains("上海") ? "上海" : source.contains("南京") ? "南京" : "";
-        String organization = source.contains("南京邮电大学") ? "南京邮电大学" : source.contains("东南大学") ? "东南大学" : "";
-        String position = source.contains("教授") ? "教授" : source.contains("博士") ? "博士" : "";
-        return Map.of("mode", "demo", "message", "当前为本地演示提取器，请在生产环境接入OCR与大模型服务", "data", Map.of("name", "", "organization", organization, "position", position, "city", city, "tags", List.of(), "sourceText", source));
-    }
-
-    private String reverseLabel(String type) {
-        return switch (type) {
-            case "指导" -> "导师";
-            case "导师" -> "指导";
-            case "学生" -> "指导";
-            default -> type;
-        };
+    public AiExtractionResponse extract(@Valid @RequestBody AiExtractionRequest request) {
+        return aiExtraction.extract(request.text().trim());
     }
 }

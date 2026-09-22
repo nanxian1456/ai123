@@ -1,6 +1,7 @@
 package com.aimap.backend.auth;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import com.aimap.backend.profile.UserProfile;
 import com.aimap.backend.profile.UserProfileStore;
@@ -23,8 +24,8 @@ public class AuthController {
     public Map<String, Object> login(@Valid @RequestBody LoginRequest request) {
         String openId = wechatAuthService.exchangeCode(request.code());
         UserProfile profile = profiles.ensure(openId);
-        return Map.of("token", tokenService.issue(openId), "expiresIn", 604800, "profileCompleted", profile.profileCompleted());
+        return Map.of("token", tokenService.issue(openId), "expiresIn", tokenService.expiresInSeconds(), "profileCompleted", profile.profileCompleted());
     }
 
-    public record LoginRequest(@NotBlank String code) { }
+    public record LoginRequest(@NotBlank @Size(max = 128) String code) { }
 }
