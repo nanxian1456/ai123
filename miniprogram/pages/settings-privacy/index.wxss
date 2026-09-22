@@ -1,0 +1,7 @@
+.privacy-intro { margin:2rpx 3rpx 22rpx; color:#738493; font-size:24rpx; line-height:1.65; }
+.visibility-card { padding:0 25rpx; }
+.visibility-row { display:flex; align-items:center; justify-content:space-between; min-height:104rpx; border-bottom:1rpx solid #edf1f3; }
+.visibility-row:last-child { border-bottom:0; }
+.visibility-row > view > text:first-child { display:block; color:#263c4e; font-size:29rpx; font-weight:600; }
+.visibility-row > view > text:last-child { display:block; margin-top:6rpx; color:#8a98a5; font-size:20rpx; }
+.visibility-row switch { transform:scale(.82); transform-origin:right center; }

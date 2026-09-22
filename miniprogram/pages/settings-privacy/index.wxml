@@ -1,0 +1,10 @@
+<view class="page">
+  <view class="privacy-intro">新用户默认所有资料均不公开。开启后，仅在朋友使用你的导入码时提供对应资料。</view>
+  <view class="card visibility-card" wx:if="{{profile}}">
+    <view class="visibility-row" wx:for="{{visibilityItems}}" wx:key="field">
+      <view><text>{{item.label}}</text><text>{{item.enabled ? '已公开' : '未公开'}}</text></view>
+      <switch checked="{{item.enabled}}" color="#1684c3" data-field="{{item.field}}" bindchange="changeVisibility" disabled="{{savingVisibility}}"/>
+    </view>
+  </view>
+  <view class="empty" wx:if="{{!profile}}">正在加载隐私设置</view>
+</view>

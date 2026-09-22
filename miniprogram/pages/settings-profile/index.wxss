@@ -1,0 +1,13 @@
+.profile-card { padding:0 25rpx; }
+.profile-summary { display:flex; align-items:center; min-height:145rpx; border-bottom:1rpx solid #edf1f3; }
+.profile-avatar { width:86rpx; height:86rpx; flex:0 0 86rpx; border-radius:50%; background:#dcebf7; }
+.profile-avatar-default { display:flex; align-items:center; justify-content:center; color:#fff; background:#1684c3; font-size:34rpx; font-weight:700; }
+.profile-copy { min-width:0; margin-left:21rpx; }
+.profile-copy view { color:#263c4e; font-size:31rpx; font-weight:600; }
+.profile-copy text { display:block; margin-top:8rpx; color:#8795a1; font-size:23rpx; }
+.details > view { display:flex; justify-content:space-between; gap:25rpx; padding:24rpx 0; border-bottom:1rpx solid #edf1f3; font-size:27rpx; }
+.details > view:last-child { border-bottom:0; }
+.details text:first-child { flex:0 0 145rpx; color:#82909d; }
+.details text:last-child { color:#263c4e; text-align:right; word-break:break-all; }
+.edit-button { height:92rpx; display:flex; align-items:center; justify-content:center; margin-top:28rpx; border-radius:10rpx; color:#fff; background:#1684c3; font-size:29rpx; font-weight:600; }
+.edit-button::after { border:0; }

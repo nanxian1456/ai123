@@ -12,6 +12,10 @@
     "pages/knowledge-graph/index",
     "pages/relationship-form/index",
     "pages/settings/index",
+    "pages/settings-profile/index",
+    "pages/settings-security/index",
+    "pages/settings-friends/index",
+    "pages/settings-privacy/index",
     "pages/logout/index",
     "pages/me/index"
   ],

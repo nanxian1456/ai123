@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="card security-card">
+    <view class="security-status">
+      <text class="status-icon">✓</text>
+      <view><text>个人数据已隔离</text><text>联系人、关系和个人资料仅属于当前微信账号</text></view>
+    </view>
+    <view class="security-detail"><text>登录方式</text><text>微信授权登录</text></view>
+  </view>
+  <view class="card logout-link" bindtap="openLogout">
+    <view><text>退出登录</text><text>清除本机登录状态，服务器数据仍会保留</text></view>
+    <text class="chevron">›</text>
+  </view>
+</view>

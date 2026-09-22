@@ -1,0 +1,8 @@
+.friend-card { text-align:center; }
+.friend-title { color:#263c4e; font-size:31rpx; font-weight:700; }
+.friend-description { display:block; margin-top:9rpx; color:#8795a1; font-size:23rpx; }
+.import-code { margin:29rpx 0 16rpx; padding:25rpx; border:1rpx solid #c9dfed; border-radius:10rpx; color:#126fa9; background:#f1f8fc; font-size:43rpx; font-weight:700; letter-spacing:6rpx; }
+.copy-tip { color:#1684c3; font-size:21rpx; }
+.permission-note { margin-top:25rpx; }
+.permission-note view { color:#263c4e; font-size:28rpx; font-weight:600; }
+.permission-note text { display:block; margin-top:11rpx; color:#738493; font-size:23rpx; line-height:1.65; }

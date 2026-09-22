@@ -1,0 +1,13 @@
+.security-card { padding:0 25rpx; }
+.security-status { display:flex; align-items:center; min-height:128rpx; border-bottom:1rpx solid #edf1f3; }
+.status-icon { width:45rpx; height:45rpx; display:flex; align-items:center; justify-content:center; flex:0 0 45rpx; border-radius:50%; color:#fff; background:#18a88e; font-size:25rpx; }
+.security-status view { margin-left:19rpx; }
+.security-status view text:first-child { display:block; color:#263c4e; font-size:29rpx; font-weight:600; }
+.security-status view text:last-child { display:block; margin-top:8rpx; color:#8795a1; font-size:22rpx; line-height:1.5; }
+.security-detail { display:flex; align-items:center; justify-content:space-between; min-height:96rpx; font-size:27rpx; }
+.security-detail text:first-child { color:#657685; }
+.security-detail text:last-child { color:#263c4e; }
+.logout-link { display:flex; align-items:center; justify-content:space-between; margin-top:25rpx; }
+.logout-link view text:first-child { display:block; color:#c95752; font-size:29rpx; font-weight:600; }
+.logout-link view text:last-child { display:block; margin-top:8rpx; color:#8795a1; font-size:21rpx; }
+.chevron { margin-left:18rpx; color:#a5b0ba; font-size:43rpx; }

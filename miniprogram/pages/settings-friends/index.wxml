@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="card friend-card" wx:if="{{profile}}">
+    <view class="friend-title">我的导入码</view>
+    <text class="friend-description">朋友可在新增联系人页面输入此码找到你</text>
+    <view class="import-code" bindtap="copyContactCode">{{profile.contactCode}}</view>
+    <view class="copy-tip">点击导入码即可复制</view>
+  </view>
+  <view class="card permission-note" wx:if="{{profile}}">
+    <view>朋友可以看到什么</view>
+    <text>朋友只能导入你在“个人隐私”页面主动公开的资料，未公开资料不会提供。</text>
+  </view>
+  <view class="empty" wx:if="{{!profile}}">正在加载朋友权限</view>
+</view>

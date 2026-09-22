@@ -1,54 +1,22 @@
-<view class="page settings-page">
-  <view class="settings-intro">
-    <view>设置</view>
-    <text>管理个人资料、账号与隐私权限</text>
+<view class="page settings-menu">
+  <view class="card module-row" bindtap="openProfile">
+    <view class="module-icon profile-icon">我</view>
+    <view class="module-name">个人资料</view>
+    <text class="chevron">›</text>
   </view>
-
-  <block wx:if="{{profile}}">
-    <view class="section-title">个人资料</view>
-    <view class="card profile-card">
-      <view class="profile-summary">
-        <image wx:if="{{profile.avatarUrl}}" class="profile-avatar" src="{{profile.avatarUrl}}" mode="aspectFill"/>
-        <view wx:else class="profile-avatar profile-avatar-default">{{profileInitial}}</view>
-        <view class="profile-copy">
-          <view>{{profile.nickname || '未设置昵称'}}</view>
-          <text>{{profile.organization || '未填写单位'}} · {{profile.city || '未填写城市'}}</text>
-        </view>
-      </view>
-      <view class="setting-link" bindtap="editProfile">
-        <view><text>编辑个人资料</text><text>修改头像、昵称、单位、职务和简介</text></view>
-        <text class="chevron">›</text>
-      </view>
-    </view>
-
-    <view class="section-title">账号安全</view>
-    <view class="card setting-list">
-      <view class="security-status">
-        <text class="status-icon">✓</text>
-        <view><text>个人数据已隔离</text><text>联系人、关系和个人资料仅属于当前微信账号</text></view>
-      </view>
-      <view class="setting-link danger-link" bindtap="openLogout">
-        <view><text>退出登录</text><text>清除本机登录状态，保留服务器数据</text></view>
-        <text class="chevron">›</text>
-      </view>
-    </view>
-
-    <view class="section-title">朋友权限</view>
-    <view class="card friend-card">
-      <view class="friend-copy"><text>我的导入码</text><text>朋友可在新增联系人页面通过此码找到你</text></view>
-      <view class="import-code" bindtap="copyContactCode">{{profile.contactCode}}</view>
-      <view class="friend-tip">朋友只能导入你在“个人隐私”中主动公开的资料。</view>
-    </view>
-
-    <view class="section-title">个人隐私</view>
-    <view class="card visibility-card">
-      <view class="visibility-tip">新用户默认所有资料均不公开。开启后，仅在朋友使用你的导入码时提供对应资料。</view>
-      <view class="visibility-row" wx:for="{{visibilityItems}}" wx:key="field">
-        <text>{{item.label}}</text>
-        <switch checked="{{item.enabled}}" color="#1684c3" data-field="{{item.field}}" bindchange="changeVisibility" disabled="{{savingVisibility}}"/>
-      </view>
-    </view>
-  </block>
-
-  <view class="empty" wx:if="{{!profile}}">正在加载设置</view>
+  <view class="card module-row" bindtap="openSecurity">
+    <view class="module-icon security-icon">安</view>
+    <view class="module-name">账号安全</view>
+    <text class="chevron">›</text>
+  </view>
+  <view class="card module-row" bindtap="openFriends">
+    <view class="module-icon friends-icon">友</view>
+    <view class="module-name">朋友权限</view>
+    <text class="chevron">›</text>
+  </view>
+  <view class="card module-row" bindtap="openPrivacy">
+    <view class="module-icon privacy-icon">隐</view>
+    <view class="module-name">个人隐私</view>
+    <text class="chevron">›</text>
+  </view>
 </view>
