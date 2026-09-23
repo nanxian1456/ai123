@@ -43,7 +43,7 @@ $env:WECHAT_APP_SECRET = "你的小程序AppSecret"
 $env:AUTH_TOKEN_SECRET = "至少32位的随机字符串"
 ```
 
-启用 AI 联系人提取时，在后端运行环境配置 DeepSeek API Key。默认请求地址是 `https://api.deepseek.com/chat/completions`，默认模型是 `deepseek-chat`，因此通常只需设置密钥：
+启用 AI 联系人提取时，在后端运行环境配置 DeepSeek API Key。默认请求地址是 `https://api.deepseek.com/chat/completions`，默认模型是 `deepseek-flash`，因此通常只需设置密钥：
 
 ```powershell
 $env:DEEPSEEK_API_KEY = "你的DeepSeek API Key"
