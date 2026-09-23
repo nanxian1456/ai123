@@ -16,7 +16,7 @@
 - 人脉地图：按联系人工作城市聚合展示。
 - 人物关系：新增、删除关系，围绕联系人展示一层关系节点和关系类型。
 - 数据持久化：用户资料、联系人、标签和关系均通过 JPA 保存到数据库。
-- AI 信息预填：通过可配置的 OpenAI 兼容接口提取联系人结构化信息。
+- AI 信息预填：通过 DeepSeek 的兼容接口提取联系人结构化信息。
 - 后端基础能力：统一参数校验和异常响应、请求追踪日志、缓存、分页及 API 限流。
 
 ## 启动后端
@@ -43,15 +43,13 @@ $env:WECHAT_APP_SECRET = "你的小程序AppSecret"
 $env:AUTH_TOKEN_SECRET = "至少32位的随机字符串"
 ```
 
-启用 AI 联系人提取时，还需配置 OpenAI 兼容服务。`AI_BASE_URL` 应填写到 API 的 `/v1` 层级，后端会调用 `/chat/completions`：
+启用 AI 联系人提取时，在后端运行环境配置 DeepSeek API Key。默认请求地址是 `https://api.deepseek.com/chat/completions`，默认模型是 `deepseek-chat`，因此通常只需设置密钥：
 
 ```powershell
-$env:AI_API_KEY = "你的AI服务密钥"
-$env:AI_BASE_URL = "https://api.openai.com/v1"
-$env:AI_MODEL = "gpt-4o-mini"
+$env:DEEPSEEK_API_KEY = "你的DeepSeek API Key"
 ```
 
-未配置 `AI_API_KEY` 时，其他功能仍可使用，AI 提取接口会明确返回“AI 提取服务尚未配置”。真实密钥不得写入配置文件或提交到 Git。
+后端沿用现有的 OpenAI 兼容请求和 JSON 解析逻辑，小程序仍调用 `POST /api/ai/extract`，无需改动页面。需要覆盖默认值时，可设置 `DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL` 和 `DEEPSEEK_TIMEOUT_SECONDS`；基础地址可填写服务根地址或以 `/v1` 结尾的地址，后端会补上 `/chat/completions`。旧的 `AI_API_KEY`、`AI_BASE_URL` 和 `AI_MODEL` 不再用于此接口，避免把其他服务商的密钥发送到 DeepSeek。未配置 `DEEPSEEK_API_KEY` 时，其他功能仍可使用，AI 提取接口会返回“AI 提取服务尚未配置”。真实密钥不得写入配置文件或提交到 Git。设置密钥后需重新启动后端；正式调用需要服务器能访问 DeepSeek API。
 
 后端不会提供默认令牌密钥；缺少 `AUTH_TOKEN_SECRET` 时将拒绝启动。生产环境还应设置实际网页来源和公开地址：
 
