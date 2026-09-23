@@ -94,3 +94,5 @@ Set-Location backend
 ```
 
 测试完成后，覆盖率报告位于 `backend/target/site/jacoco/index.html`。
+
+新增联系人页面的 AI 识别与保存流程可在项目根目录运行 `node --test tests/contact-form.test.js` 检查。

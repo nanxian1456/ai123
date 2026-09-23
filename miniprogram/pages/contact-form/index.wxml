@@ -8,18 +8,26 @@
       <button class="clear-button" bindtap="clearAiText" disabled="{{!aiText}}">清空</button>
     </view>
     <button class="extract" loading="{{extracting}}" disabled="{{extracting}}" bindtap="extract">智能整理</button>
+    <view class="ai-preview" wx:if="{{aiFields.length}}">
+      <view class="preview-title">识别结果</view>
+      <view class="preview-field" wx:for="{{aiFields}}" wx:key="key">
+        <text class="preview-label">{{item.label}}</text><text class="preview-value">{{item.value}}</text>
+      </view>
+      <button class="apply-draft" bindtap="applyAiDraft">填入联系人信息</button>
+    </view>
   </view>
   <view class="card import-card"><view class="form-title">导入小程序用户</view><view class="import-row"><input value="{{importCode}}" bindinput="importCodeInput" maxlength="8" placeholder="输入对方在“我的”页看到的导入码"/><button class="import-button" loading="{{importing}}" bindtap="importUser">导入</button></view><text>仅导入对方主动公开的资料</text></view>
-  <view class="section-title">联系人信息</view>
+  <view class="section-title" id="contact-form">联系人信息</view>
   <view class="card form">
-    <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名"/></view>
-    <view class="field"><text>单位</text><input data-field="organization" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构"/></view>
-    <view class="field"><text>职务</text><input data-field="position" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等"/></view>
-    <view class="field"><text>城市</text><input data-field="city" value="{{form.city}}" bindinput="input" placeholder="工作城市"/></view>
-    <view class="field"><text>电话</text><input data-field="phone" value="{{form.phone}}" bindinput="input" placeholder="选填" type="number"/></view>
-    <view class="field"><text>邮箱</text><input data-field="email" value="{{form.email}}" bindinput="input" placeholder="选填"/></view>
+    <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
+    <view class="field"><text>单位</text><input data-field="organization" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构" maxlength="100"/></view>
+    <view class="field"><text>职务</text><input data-field="position" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等" maxlength="50"/></view>
+    <view class="field"><text>省份</text><input data-field="province" value="{{form.province}}" bindinput="input" placeholder="所在省份" maxlength="50"/></view>
+    <view class="field"><text>城市</text><input data-field="city" value="{{form.city}}" bindinput="input" placeholder="工作城市" maxlength="50"/></view>
+    <view class="field"><text>电话</text><input data-field="phone" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
+    <view class="field"><text>邮箱</text><input data-field="email" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
     <view class="field"><text>标签</text><input data-field="tagsText" value="{{form.tagsText}}" bindinput="input" placeholder="多个标签用逗号分隔"/></view>
     <view class="field area"><text>备注</text><textarea data-field="note" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向等" maxlength="500"/></view>
   </view>
-  <button class="primary-button save" bindtap="save">确认保存</button>
+  <button class="primary-button save" bindtap="save" loading="{{saving}}" disabled="{{saving}}">{{saving ? '保存中...' : '确认保存'}}</button>
 </view>
