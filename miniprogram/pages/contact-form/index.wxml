@@ -1,7 +1,15 @@
 <view class="page">
   <settings-entry />
+  <view class="card ai-card">
+    <view class="paste-heading"><view class="form-title">粘贴联系人信息</view><text>{{aiText.length}}/4000</text></view>
+    <textarea class="paste-input" placeholder="粘贴人物介绍、聊天记录或名片文字" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
+    <view class="paste-actions">
+      <button class="paste-button" bindtap="pasteFromClipboard">粘贴</button>
+      <button class="clear-button" bindtap="clearAiText" disabled="{{!aiText}}">清空</button>
+    </view>
+    <button class="extract" loading="{{extracting}}" disabled="{{extracting}}" bindtap="extract">智能整理</button>
+  </view>
   <view class="card import-card"><view class="form-title">导入小程序用户</view><view class="import-row"><input value="{{importCode}}" bindinput="importCodeInput" maxlength="8" placeholder="输入对方在“我的”页看到的导入码"/><button class="import-button" loading="{{importing}}" bindtap="importUser">导入</button></view><text>仅导入对方主动公开的资料</text></view>
-  <view class="card ai-card"><view class="form-title">AI信息预填</view><textarea placeholder="粘贴人物介绍，例如：张老师，南京邮电大学教授，研究无线感知" value="{{aiText}}" bindinput="aiInput" maxlength="500"/><button class="extract" loading="{{extracting}}" bindtap="extract">智能整理</button></view>
   <view class="section-title">联系人信息</view>
   <view class="card form">
     <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名"/></view>

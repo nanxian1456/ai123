@@ -15,6 +15,18 @@ Page({
   },
   input(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
   aiInput(event) { this.setData({ aiText: event.detail.value }); },
+  pasteFromClipboard() {
+    wx.getClipboardData({
+      success: ({ data }) => {
+        const text = String(data || "");
+        if (!text.trim()) { wx.showToast({ title: "剪贴板没有文字", icon: "none" }); return; }
+        this.setData({ aiText: text.slice(0, 4000) });
+        wx.showToast({ title: text.length > 4000 ? "已粘贴前4000字" : "已粘贴", icon: "none" });
+      },
+      fail: () => wx.showToast({ title: "读取剪贴板失败", icon: "none" })
+    });
+  },
+  clearAiText() { this.setData({ aiText: "" }); },
   importCodeInput(event) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
   importUser() {
     const code = this.data.importCode.trim();
