@@ -16,7 +16,7 @@
       <button class="apply-draft" bindtap="applyAiDraft">填入联系人信息</button>
     </view>
   </view>
-  <view class="card import-card"><view class="form-title">导入小程序用户</view><view class="import-row"><input value="{{importCode}}" bindinput="importCodeInput" maxlength="8" placeholder="输入对方在“我的”页看到的导入码"/><button class="import-button" loading="{{importing}}" bindtap="importUser">导入</button></view><text>仅导入对方主动公开的资料</text></view>
+  <view class="card import-card"><view class="form-title">本机联系人</view><text>联系人只保存在当前手机。跨手机导入码暂不可用。</text></view>
   <view class="section-title" id="contact-form">联系人信息</view>
   <view class="card form">
     <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
