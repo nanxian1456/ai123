@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -53,6 +54,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiError> handleUploadSize(MaxUploadSizeExceededException exception, HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "上传文件不能超过 5MB", request, Map.of());
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> handleMalformedUpload(MultipartException exception, HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "MALFORMED_UPLOAD", "上传文件格式错误", request, Map.of());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
