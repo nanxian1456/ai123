@@ -16,7 +16,7 @@ const previewFields = (data: any) => AI_FIELDS.map(({ key, label }) => {
 }).filter(item => item.value);
 
 Page({
-  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", aiDraft: null as any, aiFields: [] as Array<{ key: string; label: string; value: string }>, extracting: false, importCode: "", importing: false, saving: false },
+  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", aiDraft: null as any, aiFields: [] as Array<{ key: string; label: string; value: string }>, extracting: false, saving: false },
   onLoad(query: Record<string, string>) { if (query.id) this.loadContact(query.id); },
   async loadContact(id: string) {
     try {
@@ -39,17 +39,6 @@ Page({
     });
   },
   clearAiText() { this.setData({ aiText: "", aiDraft: null, aiFields: [] }); },
-  importCodeInput(event: any) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
-  async importUser() {
-    const code = this.data.importCode.trim();
-    if (!code) return wx.showToast({ title: "请输入对方导入码", icon: "none" });
-    this.setData({ importing: true });
-    try {
-      const profile = await request<any>(`/users/importable/${encodeURIComponent(code)}`);
-      this.setData({ "form.name": profile.nickname, "form.organization": profile.organization || "", "form.position": profile.position || "", "form.city": profile.city || "", "form.note": profile.bio || "" });
-      wx.showToast({ title: "已导入对方公开资料", icon: "success" });
-    } catch (error) { showError(error); } finally { this.setData({ importing: false }); }
-  },
   async extract() {
     if (this.data.extracting) return;
     const text = this.data.aiText.trim();

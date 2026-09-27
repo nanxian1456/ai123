@@ -19,6 +19,11 @@ public class UserProfileStore {
     public UserProfileStore(UserProfileRepository repository) { this.repository = repository; this.testProfiles = new ConcurrentHashMap<>(); }
     public UserProfileStore() { this.repository = null; this.testProfiles = new ConcurrentHashMap<>(); }
 
+    public UserProfile findExisting(String ownerId) {
+        if (repository == null) return testProfiles.get(ownerId);
+        return repository.findById(ownerId).map(this::toProfile).orElse(null);
+    }
+
     @Transactional
     @CacheEvict(cacheNames = "profiles", allEntries = true)
     public UserProfile ensure(String ownerId) {
