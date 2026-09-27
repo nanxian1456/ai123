@@ -1,0 +1,15 @@
+<view class="page batch-page">
+  <settings-entry />
+  <view class="section-title">批量录入</view>
+  <view class="format">每行一位联系人：姓名 | 单位 | 职务 | 城市 | 电话。没有的字段留空。</view>
+  <textarea value="{{source}}" bindinput="input" maxlength="12000" placeholder="张三 | 甲公司 | 产品经理 | 南京 | 13800000000&#10;李四 | 乙大学 | 教师 | 上海 |" />
+  <view class="actions"><button bindtap="paste">粘贴</button><button bindtap="inspect">预览与查重</button></view>
+  <view wx:if="{{entries.length}}">
+    <view class="section-title">待保存 {{selectedCount}} / {{entries.length}}</view>
+    <view class="entry" wx:for="{{entries}}" wx:key="row" data-row="{{item.row}}" bindtap="toggle">
+      <checkbox checked="{{item.selected}}" color="#168e85" />
+      <view class="entry-info"><view>{{item.name}} <text wx:if="{{item.duplicate}}">可能重复</text></view><text>{{item.organization || '未填单位'}} · {{item.city || '未填城市'}}</text></view>
+    </view>
+    <button class="primary-button save" bindtap="save" disabled="{{saving || !selectedCount}}" loading="{{saving}}">保存选中的联系人</button>
+  </view>
+</view>

@@ -7,15 +7,16 @@ const vm = require("node:vm");
 const pageSource = fs.readFileSync(path.join(__dirname, "../miniprogram/pages/contact-form/index.js"), "utf8");
 
 function createPage(request) {
-  const calls = { requests: [], toasts: [], scrolls: [], navigations: 0 };
+  const calls = { requests: [], toasts: [], scrolls: [], modals: [], navigations: 0 };
   let definition;
   const wx = {
     showToast: options => calls.toasts.push(options),
+    showModal: options => calls.modals.push(options),
     pageScrollTo: options => calls.scrolls.push(options),
     navigateBack: () => { calls.navigations += 1; }
   };
   vm.runInNewContext(pageSource, {
-    require: () => ({
+    require: moduleId => moduleId.includes("duplicates") ? require("../miniprogram/utils/duplicates") : ({
       request: (...args) => { calls.requests.push(args); return request(...args); },
       showError: error => calls.toasts.push({ title: error.message, icon: "none" })
     }),
@@ -79,18 +80,33 @@ test("editing source text discards an in-flight AI result", async () => {
 
 test("saving uses the full payload and ignores repeated taps", async () => {
   let complete;
-  const { page, calls } = createPage(() => new Promise(resolve => { complete = resolve; }));
+  const { page, calls } = createPage(path => path === "/contacts" && calls.requests.length === 1 ? Promise.resolve([]) : new Promise(resolve => { complete = resolve; }));
   Object.assign(page.data.form, { name: " 张三 ", province: "江苏", tagsText: "校友，合作" });
   page.save();
   page.save();
 
-  assert.equal(calls.requests.length, 1);
-  assert.equal(calls.requests[0][0], "/contacts");
-  assert.equal(calls.requests[0][2].name, "张三");
-  assert.equal(calls.requests[0][2].province, "江苏");
-  assert.deepEqual(Array.from(calls.requests[0][2].tags), ["校友", "合作"]);
+  await flush();
+  assert.equal(calls.requests.length, 2);
+  assert.equal(calls.requests[1][0], "/contacts");
+  assert.equal(calls.requests[1][2].name, "张三");
+  assert.equal(calls.requests[1][2].province, "江苏");
+  assert.deepEqual(Array.from(calls.requests[1][2].tags), ["校友", "合作"]);
   assert.equal(page.data.saving, true);
   complete({});
   await flush();
   assert.equal(calls.navigations, 1);
+});
+
+test("duplicate contact requires confirmation before saving", async () => {
+  const { page, calls } = createPage(() => Promise.resolve([{ id: 1, name: "张三", organization: "学校" }]));
+  page.data.form.name = "张三";
+  page.data.form.organization = "学校";
+  page.save();
+  await flush();
+  assert.equal(calls.requests.length, 1);
+  assert.equal(calls.requests[0][0], "/contacts");
+  assert.equal(calls.modals.length, 1);
+  calls.modals[0].success({ confirm: false });
+  await flush();
+  assert.equal(page.data.saving, false);
 });

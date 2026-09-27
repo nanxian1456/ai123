@@ -74,3 +74,12 @@ test("invalid changes do not replace stored records", () => {
   assert.throws(() => local.migrate("two", { ...blank("one") }), /旧数据格式/);
   assert.equal(local.read("two"), null);
 });
+
+test("batch validation is atomic", () => {
+  store.clear();
+  local.migrate("one", blank("one"));
+  assert.throws(() => local.handle("one", "/contacts/batch", "POST", [{ name: "张三" }, { name: "" }]), /姓名不能为空/);
+  assert.equal(local.handle("one", "/contacts").length, 0);
+  const added = local.handle("one", "/contacts/batch", "POST", [{ name: "张三" }, { name: "李四" }]);
+  assert.deepEqual(added.map(item => item.id), [1, 2]);
+});

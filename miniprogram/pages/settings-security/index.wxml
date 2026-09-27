@@ -6,6 +6,10 @@
     </view>
     <view class="security-detail"><text>登录方式</text><text>微信授权登录</text></view>
   </view>
+  <view class="card logout-link" bindtap="openBackup">
+    <view><text>数据备份与恢复</text><text>将本机资料加密保存到文件</text></view>
+    <text class="chevron">›</text>
+  </view>
   <view class="card logout-link" bindtap="openLogout">
     <view><text>退出登录</text><text>仅清除登录状态，本机个人数据仍会保留</text></view>
     <text class="chevron">›</text>

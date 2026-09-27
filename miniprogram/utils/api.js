@@ -8,6 +8,7 @@ let migrationPromise = null;
 
 function getStoredToken() { return wx.getStorageSync(TOKEN_KEY) || ""; }
 function getOwnerId() { return wx.getStorageSync(OWNER_KEY) || ""; }
+function getCurrentOwnerId() { return ensureSession().then(() => getOwnerId()); }
 function clearSession() { wx.removeStorageSync(TOKEN_KEY); wx.removeStorageSync(OWNER_KEY); wx.removeStorageSync(EXPIRY_KEY); }
 function wechatLogin() {
   return new Promise((resolve, reject) => wx.login({ success: ({ code }) => code ? resolve(code) : reject(new Error("未获取到微信登录凭证")), fail: () => reject(new Error("微信登录失败")) }));
@@ -30,7 +31,7 @@ function saveRemoteAvatar(profile, token) {
     url, header: { Authorization: `Bearer ${token}` },
     success(result) {
       if (result.statusCode !== 200) return reject(new Error("旧头像下载失败，请稍后重试迁移"));
-      wx.saveFile({ tempFilePath: result.tempFilePath, success: saved => resolve({ ...profile, avatarUrl: saved.savedFilePath }), fail: () => reject(new Error("旧头像无法保存到手机，请检查存储空间")) });
+      wx.getFileSystemManager().saveFile({ tempFilePath: result.tempFilePath, success: saved => resolve({ ...profile, avatarUrl: saved.savedFilePath }), fail: () => reject(new Error("旧头像无法保存到手机，请检查存储空间")) });
     },
     fail: () => reject(new Error("旧头像下载失败，请稍后重试迁移"))
   }));
@@ -83,8 +84,19 @@ function request(path, method = "GET", data) {
   if (path.startsWith("/users/importable/")) return Promise.reject(new Error("本地模式暂不支持跨手机导入码"));
   return ensureSession().then(() => local.handle(getOwnerId(), path, method, data));
 }
+function recognizeCard(filePath) {
+  return ensureSession().then(token => new Promise((resolve, reject) => wx.uploadFile({
+    url: `${BASE_URL}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
+    success(response) {
+      let data;
+      try { data = JSON.parse(response.data); } catch (_) { return reject(new Error("图片识别结果无效")); }
+      if (response.statusCode >= 200 && response.statusCode < 300) resolve(data);
+      else reject(new Error(data.detail || data.message || "图片识别失败"));
+    }, fail: () => reject(new Error("无法连接图片识别服务"))
+  })));
+}
 function uploadAvatar(filePath) {
-  return ensureSession().then(() => new Promise((resolve, reject) => wx.saveFile({
+  return ensureSession().then(() => new Promise((resolve, reject) => wx.getFileSystemManager().saveFile({
     tempFilePath: filePath,
     success(saved) {
       try {
@@ -99,4 +111,4 @@ function uploadAvatar(filePath) {
   })));
 }
 function showError(error) { wx.showToast({ title: error && error.message ? error.message : "操作失败", icon: "none" }); }
-module.exports = { request, ensureSession, validateSession, getStoredToken, clearSession, hasProfileData, uploadAvatar, showError };
+module.exports = { request, recognizeCard, ensureSession, validateSession, getStoredToken, getCurrentOwnerId, clearSession, hasProfileData, uploadAvatar, showError };

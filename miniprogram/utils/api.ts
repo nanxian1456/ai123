@@ -9,13 +9,14 @@ type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 export function getStoredToken(): string { return (wx.getStorageSync(TOKEN_KEY) as string) || ""; }
 function getOwnerId(): string { return (wx.getStorageSync(OWNER_KEY) as string) || ""; }
+export function getCurrentOwnerId(): Promise<string> { return ensureSession().then(() => getOwnerId()); }
 export function clearSession(): void { wx.removeStorageSync(TOKEN_KEY); wx.removeStorageSync(OWNER_KEY); wx.removeStorageSync(EXPIRY_KEY); }
 function wechatLogin(): Promise<string> {
   return new Promise((resolve, reject) => wx.login({ success: ({ code }) => code ? resolve(code) : reject(new Error("未获取到微信登录凭证")), fail: () => reject(new Error("微信登录失败")) }));
 }
 function backendRequest<T = any>(path: string, method: Method, data?: unknown, token?: string): Promise<T> {
   return new Promise((resolve, reject) => wx.request({
-    url: `${BASE_URL}${path}`, method, data,
+    url: `${BASE_URL}${path}`, method: method as any, data,
     header: { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     success(response) {
       if (response.statusCode >= 200 && response.statusCode < 300) resolve(response.data as T);
@@ -31,7 +32,7 @@ function saveRemoteAvatar(profile: any, token: string): Promise<any> {
     url, header: { Authorization: `Bearer ${token}` },
     success(result) {
       if (result.statusCode !== 200) return reject(new Error("旧头像下载失败，请稍后重试迁移"));
-      wx.saveFile({ tempFilePath: result.tempFilePath, success: saved => resolve({ ...profile, avatarUrl: saved.savedFilePath }), fail: () => reject(new Error("旧头像无法保存到手机，请检查存储空间")) });
+      wx.getFileSystemManager().saveFile({ tempFilePath: result.tempFilePath, success: saved => resolve({ ...profile, avatarUrl: saved.savedFilePath }), fail: () => reject(new Error("旧头像无法保存到手机，请检查存储空间")) });
     }, fail: () => reject(new Error("旧头像下载失败，请稍后重试迁移"))
   }));
 }
@@ -82,8 +83,19 @@ export function request<T>(path: string, method: Method = "GET", data?: unknown)
   if (path.startsWith("/users/importable/")) return Promise.reject(new Error("本地模式暂不支持跨手机导入码"));
   return ensureSession().then(() => local.handle(getOwnerId(), path, method, data) as T);
 }
+export function recognizeCard<T>(filePath: string): Promise<T> {
+  return ensureSession().then(token => new Promise<T>((resolve, reject) => wx.uploadFile({
+    url: `${BASE_URL}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
+    success(response) {
+      let data: any;
+      try { data = JSON.parse(response.data); } catch (_) { return reject(new Error("图片识别结果无效")); }
+      if (response.statusCode >= 200 && response.statusCode < 300) resolve(data as T);
+      else reject(new Error(data.detail || data.message || "图片识别失败"));
+    }, fail: () => reject(new Error("无法连接图片识别服务"))
+  })));
+}
 export function uploadAvatar<T>(filePath: string): Promise<T> {
-  return ensureSession().then(() => new Promise<T>((resolve, reject) => wx.saveFile({
+  return ensureSession().then(() => new Promise<T>((resolve, reject) => wx.getFileSystemManager().saveFile({
     tempFilePath: filePath,
     success(saved) {
       try {

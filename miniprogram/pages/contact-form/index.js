@@ -1,4 +1,5 @@
-const { request, showError } = require("../../utils/api");
+const { request, recognizeCard, showError } = require("../../utils/api");
+const { findPotentialDuplicates } = require("../../utils/duplicates");
 
 const AI_FIELDS = [
   { key: "name", label: "姓名" }, { key: "organization", label: "单位" },
@@ -42,6 +43,21 @@ Page({
     });
   },
   clearAiText() { this.setData({ aiText: "", aiDraft: null, aiFields: [] }); },
+  openBatch() { wx.navigateTo({ url: "/pages/contacts-batch/index" }); },
+  chooseCard() {
+    if (this.data.extracting) return;
+    wx.chooseMedia({ count: 1, mediaType: ["image"], sizeType: ["compressed"], sourceType: ["album", "camera"], success: ({ tempFiles }) => {
+      const file = tempFiles[0];
+      if (!file || file.size > 3 * 1024 * 1024) return wx.showToast({ title: "请选择不超过3MB的名片", icon: "none" });
+      this.setData({ extracting: true, aiDraft: null, aiFields: [] });
+      recognizeCard(file.tempFilePath).then(result => {
+        const data = result.data || {};
+        const aiFields = previewFields(data);
+        if (!aiFields.length) return wx.showToast({ title: "未识别到名片信息", icon: "none" });
+        this.setData({ aiDraft: data, aiFields });
+      }).catch(showError).finally(() => this.setData({ extracting: false }));
+    } });
+  },
   extract() {
     if (this.data.extracting) return;
     const text = this.data.aiText.trim();
@@ -83,7 +99,13 @@ Page({
     const payload = { ...form, name: form.name.trim(), tags };
     delete payload.tagsText;
     this.setData({ saving: true });
-    request(this.data.id ? `/contacts/${this.data.id}` : "/contacts", this.data.id ? "PATCH" : "POST", payload).then(() => {
+    const saveContact = () => request(this.data.id ? `/contacts/${this.data.id}` : "/contacts", this.data.id ? "PATCH" : "POST", payload);
+    request("/contacts").then(contacts => {
+      const duplicates = findPotentialDuplicates(contacts, payload, this.data.id);
+      if (!duplicates.length) return saveContact();
+      return new Promise((resolve, reject) => wx.showModal({ title: "可能重复的联系人", content: `本机已有 ${duplicates.map(item => item.name).join("、")}。仍要保存吗？`, confirmText: "仍要保存", success: result => result.confirm ? saveContact().then(resolve, reject) : resolve(false), fail: reject }));
+    }).then(saved => {
+      if (saved === false) { this.setData({ saving: false }); return; }
       wx.showToast({ title: "已保存", icon: "success" });
       setTimeout(() => wx.navigateBack(), 500);
     }).catch((error) => { this.setData({ saving: false }); showError(error); });

@@ -8,6 +8,7 @@
       <button class="clear-button" bindtap="clearAiText" disabled="{{!aiText}}">清空</button>
     </view>
     <button class="extract" loading="{{extracting}}" disabled="{{extracting}}" bindtap="extract">智能整理</button>
+    <button class="card-scan" disabled="{{extracting}}" bindtap="chooseCard">拍摄或选择名片</button>
     <view class="ai-preview" wx:if="{{aiFields.length}}">
       <view class="preview-title">识别结果</view>
       <view class="preview-field" wx:for="{{aiFields}}" wx:key="key">
@@ -17,6 +18,7 @@
     </view>
   </view>
   <view class="card import-card"><view class="form-title">本机联系人</view><text>联系人只保存在当前手机。跨手机导入码暂不可用。</text></view>
+  <button class="card-scan" bindtap="openBatch">批量录入联系人</button>
   <view class="section-title" id="contact-form">联系人信息</view>
   <view class="card form">
     <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>

@@ -118,6 +118,15 @@ function handle(ownerId, path, method = "GET", payload) {
     write(ownerId, data);
     return contact;
   }
+  if (route === "/contacts/batch" && method === "POST") {
+    if (!Array.isArray(payload) || !payload.length || payload.length > 100) throw new Error("批量联系人数量无效");
+    const fields = payload.map(contactInput);
+    const added = fields.map((item, index) => ({ ...item, id: data.nextContactId + index, ownerId }));
+    data.contacts.push(...added);
+    data.nextContactId += added.length;
+    write(ownerId, data);
+    return added;
+  }
   if (route === "/contacts/directory" && method === "GET") {
     return data.contacts.filter(item => matchContact(item, query)).map(item => ({ ...item, initial: initial(item.name) }))
       .sort((a, b) => a.initial.localeCompare(b.initial) || a.name.localeCompare(b.name, "zh"));
