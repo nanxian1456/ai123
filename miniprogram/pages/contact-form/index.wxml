@@ -2,7 +2,7 @@
   <settings-entry />
   <view class="card ai-card">
     <view class="paste-heading"><view class="form-title">粘贴联系人信息</view><text>{{aiText.length}}/4000</text></view>
-    <textarea class="paste-input" placeholder="粘贴人物介绍、聊天记录或名片文字" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
+    <textarea class="paste-input" placeholder="粘贴人物介绍或名片文字" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
     <view class="paste-actions">
       <button class="paste-button" bindtap="pasteFromClipboard">粘贴</button>
       <button class="clear-button" bindtap="clearAiText" disabled="{{!aiText}}">清空</button>

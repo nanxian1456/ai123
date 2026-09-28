@@ -7,7 +7,7 @@
   </view>
   <view class="section-title">从文件恢复</view>
   <view class="backup-section">
-    <button class="secondary-button" bindtap="chooseFile" disabled="{{busy}}">选择聊天中的备份文件</button>
+    <button class="secondary-button" bindtap="chooseFile" disabled="{{busy}}">选择备份文件</button>
     <text wx:if="{{selectedName}}">{{selectedName}}</text>
     <input password value="{{importPassword}}" bindinput="importPasswordInput" placeholder="输入备份密码" maxlength="64" />
     <button class="secondary-button" bindtap="inspect" disabled="{{busy || !selectedPath}}">查看备份内容</button>
