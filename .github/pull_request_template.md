@@ -13,4 +13,5 @@
 - [ ] `project.config.json` 的 `miniprogramRoot` 为 `miniprogram/`，或已说明并获得团队确认。
 - [ ] 未提交 AppSecret、Token 密钥、数据库密码或其他敏感信息。
 - [ ] 已运行与本次改动相关的检查或测试。
+- [ ] `CHANGELOG.md` 已随代码更新，正式表格没有“待提交”或示例行，改动人与 Git Author 一致。
 - [ ] 登录、鉴权、持久化或接口改动已由至少一位成员复核。

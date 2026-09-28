@@ -49,6 +49,7 @@ git status --short --untracked-files=all
 - 没有密钥、令牌、数据库密码和本机路径。
 - 新增小程序页面时，已经在 `miniprogram/app.json` 注册。
 - `CHANGELOG.md` 已记录时间、改动人、改动类型和具体内容。
+- 日志只在“最近改动”中新增真实记录；改动人与 `git config user.name` 一致，本次提交编号填“本次提交”，旧记录的短提交号可由 `git show <编号>` 查证。
 
 只暂存本次文件，例如：
 
@@ -69,6 +70,8 @@ git diff --cached --check
 git diff --cached --name-status
 git diff --cached
 ```
+
+再查看 `CHANGELOG.md`，确认没有“待提交”、示例姓名或误放进正式表格的模板；确认历史功能下线时用新记录说明，不删除旧记录。
 
 确认无误后提交并推送个人分支：
 
