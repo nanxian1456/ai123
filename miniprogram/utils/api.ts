@@ -102,17 +102,6 @@ function publishedPayload(profile: any) {
 export function syncPublishedProfile(profile: any): Promise<void> {
   return ensureSession().then(token => backendRequest<void>("/me/published-profile", "PATCH", publishedPayload(profile), token));
 }
-export function recognizeCard<T>(filePath: string): Promise<T> {
-  return ensureSession().then(token => new Promise<T>((resolve, reject) => wx.uploadFile({
-    url: `${getApiBaseUrl()}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
-    success(response) {
-      let data: any;
-      try { data = JSON.parse(response.data); } catch (_) { return reject(new Error("图片识别结果无效")); }
-      if (response.statusCode >= 200 && response.statusCode < 300) resolve(data as T);
-      else reject(new Error(data.detail || data.message || "图片识别失败"));
-    }, fail: () => reject(new Error("无法连接图片识别服务"))
-  })));
-}
 export function uploadAvatar<T>(filePath: string): Promise<T> {
   return ensureSession().then(() => new Promise<T>((resolve, reject) => wx.getFileSystemManager().saveFile({
     tempFilePath: filePath,

@@ -101,17 +101,6 @@ function publishedPayload(profile) {
     city: visibility.city ? profile.city : "", bio: visibility.bio ? profile.bio : "" };
 }
 function syncPublishedProfile(profile) { return ensureSession().then(token => backendRequest("/me/published-profile", "PATCH", publishedPayload(profile), token)); }
-function recognizeCard(filePath) {
-  return ensureSession().then(token => new Promise((resolve, reject) => wx.uploadFile({
-    url: `${getApiBaseUrl()}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
-    success(response) {
-      let data;
-      try { data = JSON.parse(response.data); } catch (_) { return reject(new Error("图片识别结果无效")); }
-      if (response.statusCode >= 200 && response.statusCode < 300) resolve(data);
-      else reject(new Error(data.detail || data.message || "图片识别失败"));
-    }, fail: () => reject(new Error("无法连接图片识别服务"))
-  })));
-}
 function uploadAvatar(filePath) {
   return ensureSession().then(() => new Promise((resolve, reject) => wx.getFileSystemManager().saveFile({
     tempFilePath: filePath,
@@ -128,4 +117,4 @@ function uploadAvatar(filePath) {
   })));
 }
 function showError(error) { wx.showToast({ title: error && error.message ? error.message : "操作失败", icon: "none" }); }
-module.exports = { request, recognizeCard, ensureSession, validateSession, getStoredToken, getCurrentOwnerId, clearSession, hasProfileData, uploadAvatar, syncPublishedProfile, showError };
+module.exports = { request, ensureSession, validateSession, getStoredToken, getCurrentOwnerId, clearSession, hasProfileData, uploadAvatar, syncPublishedProfile, showError };

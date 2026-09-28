@@ -1,4 +1,4 @@
-import { request, recognizeCard, showError } from "../../utils/api";
+import { request, showError } from "../../utils/api";
 import duplicates = require("../../utils/duplicates");
 
 const AI_FIELDS = [
@@ -55,20 +55,6 @@ Page({
   },
   clearAiText() { this.setData({ aiText: "", aiDraft: null, aiFields: [] }); },
   openBatch() { wx.navigateTo({ url: "/pages/contacts-batch/index" }); },
-  chooseCard() {
-    if (this.data.extracting) return;
-    wx.chooseMedia({ count: 1, mediaType: ["image"], sizeType: ["compressed"], sourceType: ["album", "camera"], success: ({ tempFiles }) => {
-      const file = tempFiles[0];
-      if (!file || file.size > 3 * 1024 * 1024) return wx.showToast({ title: "请选择不超过3MB的名片", icon: "none" });
-      this.setData({ extracting: true, aiDraft: null, aiFields: [] });
-      recognizeCard<{ data: any }>(file.tempFilePath).then(result => {
-        const data = result.data || {};
-        const aiFields = previewFields(data);
-        if (!aiFields.length) return wx.showToast({ title: "未识别到名片信息", icon: "none" });
-        this.setData({ aiDraft: data, aiFields });
-      }).catch(showError).finally(() => this.setData({ extracting: false }));
-    } });
-  },
   async extract() {
     if (this.data.extracting) return;
     const text = this.data.aiText.trim();

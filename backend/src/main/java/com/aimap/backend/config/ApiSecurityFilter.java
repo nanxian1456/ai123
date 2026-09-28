@@ -67,7 +67,7 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return 0;
         if ("/api/auth/wechat-login".equals(path)) return 10;
         if ("/api/me/avatar".equals(path)) return 12;
-        if ("/api/ai/extract".equals(path) || "/api/ai/recognize-card".equals(path)) return aiLimit;
+        if ("/api/ai/extract".equals(path)) return aiLimit;
         if (path.startsWith("/api/users/importable/")) return importLimit;
         if (!path.startsWith("/api/")) return 0;
         return "GET".equalsIgnoreCase(request.getMethod()) ? defaultLimit : writeLimit;

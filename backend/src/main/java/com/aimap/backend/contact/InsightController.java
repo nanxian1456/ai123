@@ -3,7 +3,6 @@ package com.aimap.backend.contact;
 import com.aimap.backend.ai.AiExtractionRequest;
 import com.aimap.backend.ai.AiExtractionResponse;
 import com.aimap.backend.ai.AiExtractionService;
-import com.aimap.backend.ai.BusinessCardVisionService;
 import com.aimap.backend.auth.CurrentUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -17,9 +16,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.MediaType;
 
 import java.util.List;
 import java.util.Map;
@@ -31,13 +27,11 @@ public class InsightController {
     private final ContactService contacts;
     private final InsightService insights;
     private final AiExtractionService aiExtraction;
-    private final BusinessCardVisionService vision;
 
-    public InsightController(ContactService contacts, InsightService insights, AiExtractionService aiExtraction, BusinessCardVisionService vision) {
+    public InsightController(ContactService contacts, InsightService insights, AiExtractionService aiExtraction) {
         this.contacts = contacts;
         this.insights = insights;
         this.aiExtraction = aiExtraction;
-        this.vision = vision;
     }
 
     @GetMapping("/dashboard")
@@ -79,8 +73,4 @@ public class InsightController {
         return aiExtraction.extract(request.text().trim());
     }
 
-    @PostMapping(value = "/ai/recognize-card", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public AiExtractionResponse recognizeCard(@RequestParam("file") MultipartFile file) {
-        return vision.recognize(file);
-    }
 }

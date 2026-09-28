@@ -2,15 +2,14 @@
   <settings-entry />
   <view class="card ai-card">
     <view class="paste-heading"><view class="form-title">粘贴联系人信息</view><text>{{aiText.length}}/4000</text></view>
-    <textarea class="paste-input" placeholder="粘贴人物介绍或名片文字" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
+    <textarea class="paste-input" placeholder="粘贴人物介绍或联系人资料" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
     <view class="paste-actions">
       <button class="paste-button" bindtap="pasteFromClipboard">粘贴</button>
       <button class="clear-button" bindtap="clearAiText" disabled="{{!aiText}}">清空</button>
     </view>
     <button class="extract" loading="{{extracting}}" disabled="{{extracting}}" bindtap="extract">智能整理</button>
-    <button class="card-scan" disabled="{{extracting}}" bindtap="chooseCard">拍摄或选择名片</button>
     <view class="ai-preview" wx:if="{{aiFields.length}}">
-      <view class="preview-title">识别结果</view>
+      <view class="preview-title">整理结果</view>
       <view class="preview-field" wx:for="{{aiFields}}" wx:key="key">
         <text class="preview-label">{{item.label}}</text><text class="preview-value">{{item.value}}</text>
       </view>
@@ -22,7 +21,7 @@
     <view class="import-row"><input value="{{importCode}}" bindinput="importCodeInput" maxlength="8" placeholder="3位数字 + 2位字母 + 3位数字"/><button class="import-button" bindtap="importByCode" loading="{{importing}}" disabled="{{importing}}">导入</button></view>
     <text>仅填入对方主动公开的资料，保存后联系人仍只在本机。</text>
   </view>
-  <button class="card-scan" bindtap="openBatch">批量录入联系人</button>
+  <button class="batch-button" bindtap="openBatch">批量录入联系人</button>
   <view class="section-title" id="contact-form">联系人信息</view>
   <view class="card form">
     <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
