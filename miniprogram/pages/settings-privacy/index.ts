@@ -1,6 +1,6 @@
 import { request, showError } from "../../utils/api";
 
-const VISIBILITY_FIELDS = [{ field: "avatar", label: "头像" }, { field: "nickname", label: "昵称" }, { field: "organization", label: "单位" }, { field: "position", label: "职务" }, { field: "city", label: "城市" }, { field: "bio", label: "个人简介" }];
+const VISIBILITY_FIELDS = [{ field: "nickname", label: "昵称" }, { field: "organization", label: "单位" }, { field: "position", label: "职务" }, { field: "city", label: "城市" }, { field: "bio", label: "个人简介" }];
 const PRIVATE_VISIBILITY = { avatar: false, nickname: false, organization: false, position: false, city: false, bio: false };
 const normalizeProfile = (profile: any) => ({ ...profile, visibility: { ...PRIVATE_VISIBILITY, ...(profile.visibility || {}) } });
 const visibilityItems = (visibility: any) => VISIBILITY_FIELDS.map(item => ({ ...item, enabled: visibility[item.field] }));

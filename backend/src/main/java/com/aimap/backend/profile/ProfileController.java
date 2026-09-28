@@ -32,21 +32,29 @@ import javax.imageio.stream.ImageInputStream;
 @RequestMapping("/api/me")
 public class ProfileController {
     private final UserProfileStore profiles;
+    private final PublishedProfileService publishedProfiles;
     private final Path avatarStorageDirectory;
     private final String publicBaseUrl;
 
     public ProfileController(
             UserProfileStore profiles,
+            PublishedProfileService publishedProfiles,
             @Value("${avatar.storage-dir}") String avatarStorageDirectory,
             @Value("${app.public-base-url}") String publicBaseUrl
     ) {
         this.profiles = profiles;
+        this.publishedProfiles = publishedProfiles;
         this.avatarStorageDirectory = Path.of(avatarStorageDirectory).toAbsolutePath().normalize();
         this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
     }
 
     @GetMapping
     public UserProfile me() { return profiles.ensure(CurrentUser.openId()); }
+
+    @PatchMapping("/published-profile")
+    public void publish(@Valid @RequestBody PublishedProfileRequest request) {
+        publishedProfiles.publish(CurrentUser.openId(), request);
+    }
 
     @PatchMapping
     public UserProfile update(@Valid @RequestBody UserProfileRequest request) { return profiles.update(CurrentUser.openId(), request); }

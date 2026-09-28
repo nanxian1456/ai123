@@ -1,4 +1,4 @@
-import { getCurrentOwnerId, showError } from "../../utils/api";
+import { getCurrentOwnerId, syncPublishedProfile, showError } from "../../utils/api";
 import local = require("../../utils/local-data");
 import backup = require("../../utils/backup");
 
@@ -43,7 +43,13 @@ Page({
       this.setData({ busy: true });
       try {
         const ownerId = await getCurrentOwnerId();
+        const previous = local.read(ownerId);
         await backup.restore(ownerId, this.data.pending);
+        try {
+          if (previous.profile.visibility.nickname || local.read(ownerId).profile.visibility.nickname)
+            await syncPublishedProfile(local.read(ownerId).profile);
+        }
+        catch (error) { local.write(ownerId, previous); throw error; }
         this.setData({ selectedName: "", selectedPath: "", preview: null, pending: null });
         wx.showToast({ title: "恢复成功", icon: "success" });
       } catch (error) { showError(error); } finally { this.setData({ busy: false }); }

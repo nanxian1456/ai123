@@ -17,7 +17,7 @@ const previewFields = (data: any) => AI_FIELDS.map(({ key, label }) => {
 }).filter(item => item.value);
 
 Page({
-  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", aiDraft: null as any, aiFields: [] as Array<{ key: string; label: string; value: string }>, extracting: false, saving: false },
+  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", aiDraft: null as any, aiFields: [] as Array<{ key: string; label: string; value: string }>, extracting: false, saving: false, importCode: "", importing: false },
   onLoad(query: Record<string, string>) { if (query.id) this.loadContact(query.id); },
   async loadContact(id: string) {
     try {
@@ -27,6 +27,20 @@ Page({
     } catch (error) { showError(error); }
   },
   input(event: any) { const field = event.currentTarget.dataset.field; this.setData({ [`form.${field}`]: event.detail.value }); },
+  importCodeInput(event: any) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
+  async importByCode() {
+    if (this.data.importing) return;
+    const code = this.data.importCode.trim().toUpperCase();
+    if (!/^\d{3}[A-Z]{2}\d{3}$/.test(code)) return showError(new Error("请输入八位导入码：3位数字、2位字母、3位数字"));
+    this.setData({ importing: true });
+    try {
+      const profile = await request<any>(`/users/importable/${code}`);
+      this.setData({ "form.name": profile.nickname || "", "form.organization": profile.organization || "",
+        "form.position": profile.position || "", "form.city": profile.city || "", "form.note": profile.bio || "" });
+      wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
+      wx.showToast({ title: "已填入公开资料", icon: "success" });
+    } catch (error) { showError(error); } finally { this.setData({ importing: false }); }
+  },
   aiInput(event: any) { this.setData({ aiText: event.detail.value, aiDraft: null, aiFields: [] }); },
   pasteFromClipboard() {
     wx.getClipboardData({

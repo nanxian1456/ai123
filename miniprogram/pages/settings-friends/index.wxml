@@ -1,6 +1,13 @@
 <view class="page">
+  <view class="card friend-card">
+    <view class="friend-title">我的八位导入码</view>
+    <text class="friend-description">把导入码发给朋友，对方可导入你主动公开的资料。</text>
+    <view class="import-code">{{contactCode || '加载中'}}</view>
+    <button class="copy-button" bindtap="copyCode" disabled="{{!contactCode}}">复制导入码</button>
+  </view>
   <view class="card permission-note">
-    <view>朋友权限</view>
-    <text>资料和联系人只保存在这部手机，其他用户无法通过导入码获取。跨手机分享暂不可用。</text>
+    <view>公开资料</view>
+    <text>先在个人隐私中公开昵称，再选择其他可公开字段。联系人、关系、电话和邮箱始终只保存在本机。</text>
+    <button class="copy-button" bindtap="publish" loading="{{publishing}}" disabled="{{publishing || !profile || !profile.visibility.nickname}}">更新公开资料</button>
   </view>
 </view>

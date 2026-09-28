@@ -6,3 +6,4 @@
 .permission-note { margin-top:25rpx; }
 .permission-note view { color:#263c4e; font-size:28rpx; font-weight:600; }
 .permission-note text { display:block; margin-top:11rpx; color:#738493; font-size:23rpx; line-height:1.65; }
+.copy-button { margin-top:20rpx; background:#e9f4ff; color:#1677d2; font-size:27rpx; }

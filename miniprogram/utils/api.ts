@@ -80,8 +80,27 @@ export function validateSession<T>(): Promise<T> {
 }
 export function request<T>(path: string, method: Method = "GET", data?: unknown): Promise<T> {
   if (path === "/ai/extract") return ensureSession().then(token => backendRequest<T>(path, method, data, token));
-  if (path.startsWith("/users/importable/")) return Promise.reject(new Error("本地模式暂不支持跨手机导入码"));
-  return ensureSession().then(() => local.handle(getOwnerId(), path, method, data) as T);
+  if (path === "/me/import-code") return ensureSession().then(token => backendRequest<any>("/me", "GET", undefined, token).then(profile => profile.contactCode as T));
+  if (path.startsWith("/users/importable/")) return ensureSession().then(token => backendRequest<T>(path, method, data, token));
+  return ensureSession().then(token => {
+    const ownerId = getOwnerId();
+    if (method !== "PATCH" || (path !== "/me" && path !== "/me/visibility")) return local.handle(ownerId, path, method, data) as T;
+    const previous = JSON.parse(JSON.stringify(local.read(ownerId)));
+    let result: any;
+    try { result = local.handle(ownerId, path, method, data); } catch (error) { return Promise.reject(error); }
+    if (!previous.profile.visibility.nickname && !result.visibility.nickname) return result as T;
+    return backendRequest("/me/published-profile", "PATCH", publishedPayload(result), token)
+      .then(() => result as T, error => { local.write(ownerId, previous); throw error; });
+  });
+}
+function publishedPayload(profile: any) {
+  const visibility = profile.visibility || {};
+  return { published: Boolean(visibility.nickname && profile.nickname), nickname: visibility.nickname ? profile.nickname : "",
+    organization: visibility.organization ? profile.organization : "", position: visibility.position ? profile.position : "",
+    city: visibility.city ? profile.city : "", bio: visibility.bio ? profile.bio : "" };
+}
+export function syncPublishedProfile(profile: any): Promise<void> {
+  return ensureSession().then(token => backendRequest<void>("/me/published-profile", "PATCH", publishedPayload(profile), token));
 }
 export function recognizeCard<T>(filePath: string): Promise<T> {
   return ensureSession().then(token => new Promise<T>((resolve, reject) => wx.uploadFile({

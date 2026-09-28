@@ -81,9 +81,26 @@ function validateSession() {
 }
 function request(path, method = "GET", data) {
   if (path === "/ai/extract") return ensureSession().then(token => backendRequest(path, method, data, token));
-  if (path.startsWith("/users/importable/")) return Promise.reject(new Error("本地模式暂不支持跨手机导入码"));
-  return ensureSession().then(() => local.handle(getOwnerId(), path, method, data));
+  if (path === "/me/import-code") return ensureSession().then(token => backendRequest("/me", "GET", undefined, token).then(profile => profile.contactCode));
+  if (path.startsWith("/users/importable/")) return ensureSession().then(token => backendRequest(path, method, data, token));
+  return ensureSession().then(token => {
+    const ownerId = getOwnerId();
+    if (method !== "PATCH" || (path !== "/me" && path !== "/me/visibility")) return local.handle(ownerId, path, method, data);
+    const previous = JSON.parse(JSON.stringify(local.read(ownerId)));
+    let result;
+    try { result = local.handle(ownerId, path, method, data); } catch (error) { return Promise.reject(error); }
+    if (!previous.profile.visibility.nickname && !result.visibility.nickname) return result;
+    return backendRequest("/me/published-profile", "PATCH", publishedPayload(result), token)
+      .then(() => result, error => { local.write(ownerId, previous); throw error; });
+  });
 }
+function publishedPayload(profile) {
+  const visibility = profile.visibility || {};
+  return { published: Boolean(visibility.nickname && profile.nickname), nickname: visibility.nickname ? profile.nickname : "",
+    organization: visibility.organization ? profile.organization : "", position: visibility.position ? profile.position : "",
+    city: visibility.city ? profile.city : "", bio: visibility.bio ? profile.bio : "" };
+}
+function syncPublishedProfile(profile) { return ensureSession().then(token => backendRequest("/me/published-profile", "PATCH", publishedPayload(profile), token)); }
 function recognizeCard(filePath) {
   return ensureSession().then(token => new Promise((resolve, reject) => wx.uploadFile({
     url: `${BASE_URL}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
@@ -111,4 +128,4 @@ function uploadAvatar(filePath) {
   })));
 }
 function showError(error) { wx.showToast({ title: error && error.message ? error.message : "操作失败", icon: "none" }); }
-module.exports = { request, recognizeCard, ensureSession, validateSession, getStoredToken, getCurrentOwnerId, clearSession, hasProfileData, uploadAvatar, showError };
+module.exports = { request, recognizeCard, ensureSession, validateSession, getStoredToken, getCurrentOwnerId, clearSession, hasProfileData, uploadAvatar, syncPublishedProfile, showError };

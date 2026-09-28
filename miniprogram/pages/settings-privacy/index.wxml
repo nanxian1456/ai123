@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="privacy-intro">新用户默认所有资料均不公开。当前仅保存在本机，公开设置暂不会向其他用户分享资料。</view>
+  <view class="privacy-intro">新用户默认所有资料均不公开。公开昵称后，持有你的导入码的人可以获取你选择公开的文字资料。头像仅保存在本机。</view>
   <view class="card visibility-card" wx:if="{{profile}}">
     <view class="visibility-row" wx:for="{{visibilityItems}}" wx:key="field">
       <view><text>{{item.label}}</text><text>{{item.enabled ? '已公开' : '未公开'}}</text></view>

@@ -17,7 +17,11 @@
       <button class="apply-draft" bindtap="applyAiDraft">填入联系人信息</button>
     </view>
   </view>
-  <view class="card import-card"><view class="form-title">本机联系人</view><text>联系人只保存在当前手机。跨手机导入码暂不可用。</text></view>
+  <view class="card import-card" wx:if="{{!id}}">
+    <view class="form-title">通过八位码导入</view>
+    <view class="import-row"><input value="{{importCode}}" bindinput="importCodeInput" maxlength="8" placeholder="3位数字 + 2位字母 + 3位数字"/><button class="import-button" bindtap="importByCode" loading="{{importing}}" disabled="{{importing}}">导入</button></view>
+    <text>仅填入对方主动公开的资料，保存后联系人仍只在本机。</text>
+  </view>
   <button class="card-scan" bindtap="openBatch">批量录入联系人</button>
   <view class="section-title" id="contact-form">联系人信息</view>
   <view class="card form">

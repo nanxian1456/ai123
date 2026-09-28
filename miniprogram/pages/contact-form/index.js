@@ -20,7 +20,7 @@ Page({
   data: {
     id: "",
     form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" },
-    aiText: "", aiDraft: null, aiFields: [], extracting: false, saving: false
+    aiText: "", aiDraft: null, aiFields: [], extracting: false, saving: false, importCode: "", importing: false
   },
   onLoad(query) { if (query.id) this.loadContact(query.id); },
   loadContact(id) {
@@ -30,6 +30,22 @@ Page({
     }).catch(showError);
   },
   input(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
+  importCodeInput(event) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
+  importByCode() {
+    if (this.data.importing) return;
+    const code = this.data.importCode.trim().toUpperCase();
+    if (!/^\d{3}[A-Z]{2}\d{3}$/.test(code)) return showError(new Error("请输入八位导入码：3位数字、2位字母、3位数字"));
+    this.setData({ importing: true });
+    request(`/users/importable/${code}`).then(profile => {
+      this.setData({
+        "form.name": profile.nickname || "", "form.organization": profile.organization || "",
+        "form.position": profile.position || "", "form.city": profile.city || "",
+        "form.note": profile.bio || ""
+      });
+      wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
+      wx.showToast({ title: "已填入公开资料", icon: "success" });
+    }).catch(showError).finally(() => this.setData({ importing: false }));
+  },
   aiInput(event) { this.setData({ aiText: event.detail.value, aiDraft: null, aiFields: [] }); },
   pasteFromClipboard() {
     wx.getClipboardData({

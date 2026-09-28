@@ -52,18 +52,46 @@ test("expired legacy token returns to login without erasing local records", asyn
   assert.ok(local.read("one"));
 });
 
-test("local requests do not contact the server and logout preserves records", async () => {
+test("private profile and contacts stay local", async () => {
   store.clear();
   local.migrate("one", blank("one"));
   store.set("ai-network-auth-token", "token");
   store.set("ai-network-owner-id", "one");
-  wx.request = () => { throw new Error("unexpected network request"); };
+  const requests = [];
+  wx.request = options => { requests.push(options); options.success({ statusCode: 200, data: {} }); };
   await api.request("/me", "PATCH", { nickname: "本机用户" });
+  assert.equal(requests.length, 0);
   await api.request("/contacts", "POST", { name: "张三" });
+  assert.equal(requests.length, 0);
   assert.equal((await api.validateSession()).nickname, "本机用户");
   api.clearSession();
   assert.equal(local.handle("one", "/contacts").length, 1);
   await assert.rejects(api.validateSession(), /NO_SESSION/);
+});
+
+test("publishing shares only selected profile fields and revoking removes access", async () => {
+  store.clear();
+  local.migrate("one", blank("one"));
+  local.handle("one", "/me", "PATCH", { nickname: "小王", organization: "大学", city: "南京" });
+  store.set("ai-network-auth-token", "token");
+  store.set("ai-network-owner-id", "one");
+  const sent = [];
+  wx.request = options => { sent.push(options.data); options.success({ statusCode: 200, data: {} }); };
+  await api.request("/me/visibility", "PATCH", { avatar: false, nickname: true, organization: false, position: false, city: true, bio: false });
+  assert.deepEqual(sent[0], { published: true, nickname: "小王", organization: "", position: "", city: "南京", bio: "" });
+  await api.request("/me/visibility", "PATCH", { avatar: false, nickname: false, organization: false, position: false, city: false, bio: false });
+  assert.equal(sent[1].published, false);
+});
+
+test("failed publication restores local visibility", async () => {
+  store.clear();
+  local.migrate("one", blank("one"));
+  local.handle("one", "/me", "PATCH", { nickname: "小王", organization: "学校" });
+  store.set("ai-network-auth-token", "token");
+  store.set("ai-network-owner-id", "one");
+  wx.request = options => options.fail();
+  await assert.rejects(api.request("/me/visibility", "PATCH", { avatar: false, nickname: true, organization: false, position: false, city: false, bio: false }), /无法连接后端/);
+  assert.equal(local.handle("one", "/me").visibility.nickname, false);
 });
 
 test("invalid changes do not replace stored records", () => {
