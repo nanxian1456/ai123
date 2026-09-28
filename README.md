@@ -32,6 +32,8 @@
 
 服务启动后访问地址为 `http://127.0.0.1:8080`。后端用于微信登录、首次导出旧数据、AI 提取和导入码公开资料交换；既有 H2 数据保留供迁移，不会自动删除。
 
+后端配置分为 `application.properties`（公共参数）、`application-dev.properties`（本机开发）和 `application-prod.properties`（生产环境）。默认使用 `dev`，上述命令不变；开发环境会读取 Git 忽略的 `backend/src/main/resources/application-local.properties`，保留现有本机密钥配置。不要把真实密钥写入已跟踪的配置文件。部署时显式设置 `$env:SPRING_PROFILES_ACTIVE = "prod"` 后启动，生产环境不会导入 `application-local.properties`，必须通过环境变量提供 `AUTH_TOKEN_SECRET` 等密钥。当前数据库仍默认为文件型 H2，正式部署前需另行配置生产数据库。
+
 ## 微信登录与用户隔离
 
 用户点击进入页按钮后才检查本机登录状态。登录时调用 `wx.login`，后端使用临时 `code` 换取 `openid`，再签发七天有效的访问令牌。本机数据以 `openid` 为键分别保存；联系人、统计、地图和关系图谱在手机上计算。
