@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -73,6 +74,11 @@ public class GlobalExceptionHandler {
         HttpStatus resolved = status == null ? HttpStatus.INTERNAL_SERVER_ERROR : status;
         String message = exception.getReason() == null ? resolved.getReasonPhrase() : exception.getReason();
         return response(resolved, "REQUEST_FAILED", message, request, Map.of());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleMissingResource(NoResourceFoundException exception, HttpServletRequest request) {
+        return response(HttpStatus.NOT_FOUND, "NOT_FOUND", "请求地址不存在", request, Map.of());
     }
 
     @ExceptionHandler(Exception.class)

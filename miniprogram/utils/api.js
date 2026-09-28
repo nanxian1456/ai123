@@ -1,5 +1,5 @@
 const local = require("./local-data");
-const BASE_URL = "http://127.0.0.1:8080/api";
+const { getApiBaseUrl } = require("./api-config");
 const TOKEN_KEY = "ai-network-auth-token";
 const OWNER_KEY = "ai-network-owner-id";
 const EXPIRY_KEY = "ai-network-token-expires-at";
@@ -15,7 +15,7 @@ function wechatLogin() {
 }
 function backendRequest(path, method, data, token) {
   return new Promise((resolve, reject) => wx.request({
-    url: `${BASE_URL}${path}`, method, data,
+    url: `${getApiBaseUrl()}${path}`, method, data,
     header: { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     success(response) {
       if (response.statusCode >= 200 && response.statusCode < 300) resolve(response.data);
@@ -103,7 +103,7 @@ function publishedPayload(profile) {
 function syncPublishedProfile(profile) { return ensureSession().then(token => backendRequest("/me/published-profile", "PATCH", publishedPayload(profile), token)); }
 function recognizeCard(filePath) {
   return ensureSession().then(token => new Promise((resolve, reject) => wx.uploadFile({
-    url: `${BASE_URL}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
+    url: `${getApiBaseUrl()}/ai/recognize-card`, filePath, name: "file", header: { Authorization: `Bearer ${token}` },
     success(response) {
       let data;
       try { data = JSON.parse(response.data); } catch (_) { return reject(new Error("图片识别结果无效")); }

@@ -30,9 +30,13 @@
 .\mvnw.cmd spring-boot:run
 ```
 
-服务启动后访问地址为 `http://127.0.0.1:8080`。后端用于微信登录、首次导出旧数据、AI 提取和导入码公开资料交换；既有 H2 数据保留供迁移，不会自动删除。
+也可以运行 `.\start.ps1 -Profile dev`，或用 `.\start.ps1 -Profile dev -Background` 在后台启动。后台启动日志写入 `backend/logs/`，脚本只表示进程已发起，需检查日志或访问 `http://127.0.0.1:8080/actuator/health` 确认就绪。
 
-后端配置分为 `application.properties`（公共参数）、`application-dev.properties`（本机开发）和 `application-prod.properties`（生产环境）。默认使用 `dev`，上述命令不变；开发环境会读取 Git 忽略的 `backend/src/main/resources/application-local.properties`，保留现有本机密钥配置。不要把真实密钥写入已跟踪的配置文件。部署时显式设置 `$env:SPRING_PROFILES_ACTIVE = "prod"` 后启动，生产环境不会导入 `application-local.properties`，必须通过环境变量提供 `AUTH_TOKEN_SECRET` 等密钥。当前数据库仍默认为文件型 H2，正式部署前需另行配置生产数据库。
+服务启动后访问地址为 `http://127.0.0.1:8080`。后端用于微信登录、首次导出旧数据、AI 提取和导入码公开资料交换；既有 H2 数据不会自动删除。
+
+后端配置分为 `application.properties`（公共参数）、`application-dev.properties`（本机 H2）和 `application-prod.properties`（PostgreSQL）。默认使用 `dev`，上述命令不变；开发环境会读取 Git 忽略的 `backend/src/main/resources/application-local.properties`，保留现有本机密钥配置。不要把真实密钥写入已跟踪的配置文件。部署时显式选择 `prod`，生产环境不会导入 `application-local.properties`，必须通过环境变量提供密钥和数据库连接。
+
+生产环境先准备 PostgreSQL 数据库及独立账号，并设置 `SPRING_DATASOURCE_URL`（`jdbc:postgresql://主机:5432/数据库名`）、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、微信登录密钥、`AUTH_TOKEN_SECRET` 和 `APP_PUBLIC_BASE_URL`，再运行 `.\start.ps1 -Profile prod`。生产配置会自动创建/更新当前表结构，但**不会搬迁 H2 中的账号资料、固定导入码或公开资料**；已有用户切换数据库前应备份并安排数据迁移，不能直接指向空库上线。生产日志默认写入 `backend/logs/ai-network.log`，按 10MB 滚动并保留 30 份。`/actuator/health` 和 `/actuator/info` 可用于基础监控；未开放无认证的 metrics HTTP 端点。
 
 ## 微信登录与用户隔离
 
@@ -82,11 +86,11 @@ $env:APP_PUBLIC_BASE_URL = "https://你的后端域名"
 ## 打开小程序
 
 1. 打开微信开发者工具。
-2. 测试本地存储分支时，导入项目根目录 `C:\Users\l\Desktop\AI人脉地图-本地化`。根目录配置会自动将 `miniprogram` 识别为小程序源码目录。
+2. 导入项目根目录 `C:\Users\l\Desktop\AI人脉地图初版`。根目录配置会自动将 `miniprogram` 识别为小程序源码目录。
 3. 在开发者工具中勾选“不校验合法域名、web-view 域名、TLS 版本以及 HTTPS 证书”。
 4. 确认后端已在本机 `8080` 端口运行，然后点击编译。
 
-真机调试不能直接访问电脑上的 `127.0.0.1`。需要将 `miniprogram/utils/api.ts` 中的 `BASE_URL` 改为局域网可访问地址或已部署的 HTTPS 域名，并在微信公众平台配置请求合法域名。
+小程序 API 地址集中在 `miniprogram/utils/api-config.ts` 和同名运行时 `.js` 文件：`develop` 默认访问电脑本机 `127.0.0.1`，手机开发版需将这两处 `develop` 地址改为手机可访问的后端地址；`trial` 和 `release` 默认留空，上传体验版或正式版前必须在两处填入实际 HTTPS 后端地址。未配置时会直接提示，避免误连开发电脑。真机不能访问电脑的 `127.0.0.1`；正式使用还需在微信公众平台配置 HTTPS 请求合法域名。
 
 ## 主要接口
 
