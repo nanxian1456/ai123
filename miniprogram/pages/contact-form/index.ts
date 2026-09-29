@@ -17,24 +17,38 @@ const previewFields = (data: any) => AI_FIELDS.map(({ key, label }) => {
 }).filter(item => item.value);
 
 Page({
-  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", aiDraft: null as any, aiFields: [] as Array<{ key: string; label: string; value: string }>, extracting: false, saving: false, importCode: "", importing: false, suggestedTags: suggestedTagOptions("") },
+  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", aiDraft: null as any, aiFields: [] as Array<{ key: string; label: string; value: string }>, extracting: false, saving: false, importCode: "", importing: false, suggestedTags: suggestedTagOptions(""), selectedTags: [] as string[], customTagInput: "" },
   onLoad(query: Record<string, string>) { if (query.id) this.loadContact(query.id); },
   async loadContact(id: string) {
     try {
       const contact = await request<any>(`/contacts/${id}`);
       const tagsText = (contact.tags || []).join("，");
-      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText }, suggestedTags: suggestedTagOptions(tagsText) });
+      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText }, suggestedTags: suggestedTagOptions(tagsText), selectedTags: splitTags(tagsText) });
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     } catch (error) { showError(error); }
   },
-  input(event: any) { const field = event.currentTarget.dataset.field; const updates: Record<string, any> = { [`form.${field}`]: event.detail.value }; if (field === "tagsText") updates.suggestedTags = suggestedTagOptions(event.detail.value); this.setData(updates); },
+  input(event: any) { const field = event.currentTarget.dataset.field; const updates: Record<string, any> = { [`form.${field}`]: event.detail.value }; if (field === "tagsText") { updates.suggestedTags = suggestedTagOptions(event.detail.value); updates.selectedTags = splitTags(event.detail.value); } this.setData(updates); },
+  onCustomTagInput(event: any) { this.setData({ customTagInput: event.detail.value }); },
+  addCustomTag() {
+    const additions = splitTags(this.data.customTagInput);
+    if (!additions.length) return;
+    const tags = Array.from(new Set([...splitTags(this.data.form.tagsText), ...additions]));
+    if (tags.length > 10 || tags.some(tag => tag.length > 20)) return wx.showToast({ title: "最多10个标签，每个不超过20字", icon: "none" });
+    const tagsText = tags.join("，");
+    this.setData({ "form.tagsText": tagsText, selectedTags: tags, suggestedTags: suggestedTagOptions(tagsText), customTagInput: "" });
+  },
+  removeTag(event: any) {
+    const tags = splitTags(this.data.form.tagsText).filter(tag => tag !== event.currentTarget.dataset.tag);
+    const tagsText = tags.join("，");
+    this.setData({ "form.tagsText": tagsText, selectedTags: tags, suggestedTags: suggestedTagOptions(tagsText) });
+  },
   toggleSuggestedTag(event: any) {
     const tag = event.currentTarget.dataset.tag;
     const tags = Array.from(new Set(splitTags(this.data.form.tagsText)));
     const next = tags.includes(tag) ? tags.filter(item => item !== tag) : [...tags, tag];
     if (next.length > 10) return wx.showToast({ title: "标签最多10个", icon: "none" });
     const tagsText = next.join("，");
-    this.setData({ "form.tagsText": tagsText, suggestedTags: suggestedTagOptions(tagsText) });
+    this.setData({ "form.tagsText": tagsText, selectedTags: next, suggestedTags: suggestedTagOptions(tagsText) });
   },
   importCodeInput(event: any) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
   async importByCode() {
@@ -91,7 +105,7 @@ Page({
     const existingTags = splitTags(this.data.form.tagsText || "");
     const extractedTags = Array.isArray(data.tags) ? data.tags.map((tag: string) => tag.trim()).filter(Boolean) : [];
     const tags = Array.from(new Set([...existingTags, ...extractedTags])).slice(0, 10);
-    if (tags.length > existingTags.length) { updates["form.tagsText"] = tags.join("，"); updates.suggestedTags = suggestedTagOptions(updates["form.tagsText"]); }
+    if (tags.length > existingTags.length) { updates["form.tagsText"] = tags.join("，"); updates.suggestedTags = suggestedTagOptions(updates["form.tagsText"]); updates.selectedTags = tags; }
     if (!Object.keys(updates).length) return wx.showToast({ title: "已有资料未被覆盖", icon: "none" });
     this.setData(updates);
     wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
@@ -101,7 +115,7 @@ Page({
     if (this.data.saving) return;
     const form = this.data.form;
     if (!form.name.trim()) return wx.showToast({ title: "请填写姓名", icon: "none" });
-    const tags = Array.from(new Set(splitTags(form.tagsText)));
+    const tags = Array.from(new Set([...splitTags(form.tagsText), ...splitTags(this.data.customTagInput)]));
     if (tags.length > 10 || tags.some(tag => tag.length > 20)) return wx.showToast({ title: "标签最多10个，每个不超过20字", icon: "none" });
     const payload = { ...form, name: form.name.trim(), tags };
     delete (payload as { tagsText?: string }).tagsText;

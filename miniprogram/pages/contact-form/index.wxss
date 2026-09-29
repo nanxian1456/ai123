@@ -19,3 +19,11 @@
 .suggested-tags > text { width:100%; color:#4c5f73; font-size:25rpx; }
 .suggested-tag { padding:9rpx 16rpx; border:1rpx solid #cbddec; border-radius:8rpx; background:#f5f9fc; color:#356c9d; font-size:24rpx; }
 .suggested-tag.selected { border-color:#1677d2; background:#e6f2ff; color:#1464a8; font-weight:600; }
+.custom-tag-field { padding:18rpx 0 4rpx; }
+.custom-tag-field > text { display:block; margin-bottom:12rpx; color:#4c5f73; font-size:27rpx; }
+.custom-tag-entry { display:flex; align-items:center; gap:12rpx; }
+.custom-tag-entry input { flex:1; min-width:0; height:72rpx; padding:0 16rpx; border:1rpx solid #d6e1ec; border-radius:8rpx; box-sizing:border-box; text-align:left; font-size:26rpx; }
+.custom-tag-entry button { flex:0 0 112rpx; width:112rpx; height:72rpx; margin:0; padding:0; border-radius:8rpx; background:#e9f4ff; color:#1677d2; font-size:25rpx; line-height:72rpx; }
+.selected-tags { display:flex; flex-wrap:wrap; gap:10rpx; padding:14rpx 0 4rpx; }
+.selected-tag { display:flex; align-items:center; gap:10rpx; width:auto; max-width:100%; height:56rpx; margin:0; padding:0 14rpx; border:1rpx solid #cbddec; border-radius:8rpx; background:#eaf4ff; color:#245f92; font-size:23rpx; line-height:56rpx; }
+.selected-tag text { font-size:30rpx; }
