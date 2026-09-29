@@ -12,9 +12,10 @@ function filterTags(tags) {
   ];
 }
 
-function suggestedTagOptions(value) {
+function suggestedTagOptions(value, tags = []) {
   const selected = new Set(splitTags(value));
-  return SUGGESTED_TAGS.map((name) => ({ name, selected: selected.has(name) }));
+  const names = [...SUGGESTED_TAGS, ...tags.map(({ name }) => name).filter((name) => !SUGGESTED_TAGS.includes(name))];
+  return names.map((name) => ({ name, selected: selected.has(name) }));
 }
 
 module.exports = { SUGGESTED_TAGS, splitTags, filterTags, suggestedTagOptions };

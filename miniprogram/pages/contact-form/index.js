@@ -21,13 +21,16 @@ Page({
     id: "",
     form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" },
     aiText: "", aiDraft: null, aiFields: [], extracting: false, saving: false, importCode: "", importing: false,
-    suggestedTags: suggestedTagOptions(""), selectedTags: [], customTagInput: ""
+    suggestedTags: suggestedTagOptions(""), availableTags: [], selectedTags: []
   },
-  onLoad(query) { if (query.id) this.loadContact(query.id); },
+  onLoad(query) { this.loadTags(); if (query.id) this.loadContact(query.id); },
+  loadTags() {
+    request("/tags").then((tags) => this.setData({ availableTags: tags, suggestedTags: suggestedTagOptions(this.data.form.tagsText, tags) })).catch(showError);
+  },
   loadContact(id) {
     request(`/contacts/${id}`).then((contact) => {
       const tagsText = (contact.tags || []).join("，");
-      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText }, suggestedTags: suggestedTagOptions(tagsText), selectedTags: splitTags(tagsText) });
+      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText }, suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags), selectedTags: splitTags(tagsText) });
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     }).catch(showError);
   },
@@ -35,24 +38,15 @@ Page({
     const field = event.currentTarget.dataset.field;
     const updates = { [`form.${field}`]: event.detail.value };
     if (field === "tagsText") {
-      updates.suggestedTags = suggestedTagOptions(event.detail.value);
+      updates.suggestedTags = suggestedTagOptions(event.detail.value, this.data.availableTags);
       updates.selectedTags = splitTags(event.detail.value);
     }
     this.setData(updates);
   },
-  onCustomTagInput(event) { this.setData({ customTagInput: event.detail.value }); },
-  addCustomTag() {
-    const additions = splitTags(this.data.customTagInput);
-    if (!additions.length) return;
-    const tags = Array.from(new Set([...splitTags(this.data.form.tagsText), ...additions]));
-    if (tags.length > 10 || tags.some((tag) => tag.length > 20)) return wx.showToast({ title: "最多10个标签，每个不超过20字", icon: "none" });
-    const tagsText = tags.join("，");
-    this.setData({ "form.tagsText": tagsText, selectedTags: tags, suggestedTags: suggestedTagOptions(tagsText), customTagInput: "" });
-  },
   removeTag(event) {
     const tags = splitTags(this.data.form.tagsText).filter((tag) => tag !== event.currentTarget.dataset.tag);
     const tagsText = tags.join("，");
-    this.setData({ "form.tagsText": tagsText, selectedTags: tags, suggestedTags: suggestedTagOptions(tagsText) });
+    this.setData({ "form.tagsText": tagsText, selectedTags: tags, suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags) });
   },
   toggleSuggestedTag(event) {
     const tag = event.currentTarget.dataset.tag;
@@ -60,7 +54,7 @@ Page({
     const next = tags.includes(tag) ? tags.filter((item) => item !== tag) : [...tags, tag];
     if (next.length > 10) return wx.showToast({ title: "标签最多10个", icon: "none" });
     const tagsText = next.join("，");
-    this.setData({ "form.tagsText": tagsText, selectedTags: next, suggestedTags: suggestedTagOptions(tagsText) });
+    this.setData({ "form.tagsText": tagsText, selectedTags: next, suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags) });
   },
   importCodeInput(event) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
   importByCode() {
@@ -120,7 +114,7 @@ Page({
     const tags = Array.from(new Set([...existingTags, ...extractedTags])).slice(0, 10);
     if (tags.length > existingTags.length) {
       updates["form.tagsText"] = tags.join("，");
-      updates.suggestedTags = suggestedTagOptions(updates["form.tagsText"]);
+      updates.suggestedTags = suggestedTagOptions(updates["form.tagsText"], this.data.availableTags);
       updates.selectedTags = tags;
     }
     if (!Object.keys(updates).length) { wx.showToast({ title: "已有资料未被覆盖", icon: "none" }); return; }
@@ -132,7 +126,7 @@ Page({
     if (this.data.saving) return;
     const form = this.data.form;
     if (!form.name.trim()) { wx.showToast({ title: "请填写姓名", icon: "none" }); return; }
-    const tags = Array.from(new Set([...splitTags(form.tagsText), ...splitTags(this.data.customTagInput)]));
+    const tags = Array.from(new Set(splitTags(form.tagsText)));
     if (tags.length > 10 || tags.some((tag) => tag.length > 20)) { wx.showToast({ title: "标签最多10个，每个不超过20字", icon: "none" }); return; }
     const payload = { ...form, name: form.name.trim(), tags };
     delete payload.tagsText;

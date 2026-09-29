@@ -8,3 +8,4 @@
 .tag-count { font-size:20rpx; opacity:.8; }
 .directory { flex:1; min-height:0; height:auto; }
 .letter-index { top:50%; transform:translateY(-50%); }
+.create-tag { border-style:dashed; color:#1677d2; background:#f5faff; }

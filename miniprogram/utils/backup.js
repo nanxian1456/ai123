@@ -22,6 +22,7 @@ function signedContent(file) { return [FORMAT, file.version, file.rounds, file.s
 function validateData(data, ownerId) {
   if (!data || data.version !== 1 || !data.profile || data.profile.ownerId !== ownerId || !Array.isArray(data.contacts) || !Array.isArray(data.relationships)) throw new Error("备份数据格式无效");
   if (data.contacts.some(item => item.ownerId !== ownerId || !Number.isSafeInteger(item.id)) || data.relationships.some(item => item.ownerId !== ownerId || !Number.isSafeInteger(item.id))) throw new Error("备份包含其他账号的数据");
+  if (data.tagCatalog != null && (!Array.isArray(data.tagCatalog) || data.tagCatalog.some(name => typeof name !== "string" || !name.trim() || name.length > 20) || new Set(data.tagCatalog).size !== data.tagCatalog.length)) throw new Error("备份标签目录无效");
   const contactIds = new Set(data.contacts.map(item => item.id));
   const relationshipIds = new Set(data.relationships.map(item => item.id));
   if (contactIds.size !== data.contacts.length || relationshipIds.size !== data.relationships.length ||

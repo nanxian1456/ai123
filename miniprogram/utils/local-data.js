@@ -1,4 +1,5 @@
 const PREFIX = "ai-network-local-v1:";
+const { SUGGESTED_TAGS } = require("./contact-tags");
 const PRIVATE = { avatar: false, nickname: false, organization: false, position: false, city: false, bio: false };
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SURNAMES = "赵Z钱Q孙S李L周Z吴W郑Z王W冯F陈C褚C卫W蒋J沈S韩H杨Y朱Z秦Q尤Y许X何H吕L施S张Z孔K曹C严Y华H金J魏W陶T姜J戚Q谢X邹Z喻Y柏B水S窦D章Z云Y苏S潘P葛G奚X范F彭P郎L鲁L韦W昌C马M苗M凤F花H方F俞Y任R袁Y柳L鲍B史S唐T费F廉L岑C薛X雷L贺H倪N汤T滕T殷Y罗L毕B郝H邬W安A常C乐Y于Y时S傅F皮P卞B齐Q康K伍W余Y元Y卜B顾G孟M平P黄H和H穆M萧X尹Y姚Y邵S湛Z汪W祁Q毛M禹Y狄D米M贝B明M臧Z计J伏F成C戴D宋S茅M庞P熊X纪J舒S屈Q项X祝Z董D梁L杜D阮R蓝L闵M席X季J麻M强Q贾J路L娄L危W江J童T颜Y郭G梅M盛S林L刁D钟Z徐X邱Q骆L高G夏X蔡C田T樊F胡H凌L霍H虞Y万W支Z柯K昝Z管G卢L莫M经J房F裘Q缪M干G解X应Y宗Z丁D宣X贲B邓D郁Y单S杭H洪H包B诸Z左Z石S崔C吉J龚G程C嵇J邢X滑H裴P陆L荣R翁W荀X羊Y惠H甄Z曲Q家J封F芮R羿Y储C靳J汲J邴B糜M松S井J段D富F巫W乌W焦J巴B弓G牧M隗W山S谷G车C侯H宓M蓬P全Q郗X班B仰Y秋Q仲Z伊Y宫G宁N仇Q栾L暴B甘G钭T厉L戎R祖Z武W符F刘L景J詹Z束S龙L叶Y幸X司S韶S黎L蓟J薄B印Y宿S白B怀H蒲P台T从C鄂E索S赖L卓Z蔺L屠T蒙M池C乔Q阴Y胥X能N苍C双S闻W莘S党D翟Z谭T贡G劳L逄P姬J申S扶F堵D冉R宰Z郦L雍Y却Q璩Q桑S桂G濮P牛N寿S通T边B扈H燕Y冀J郏J浦P尚S农N温W别B庄Z晏Y柴C瞿Q阎Y充C慕M连L茹R习X宦H艾A鱼Y容R向X古G易Y慎S戈G廖L庾Y终Z暨J居J衡H步B都D耿G满M弘H匡K国G文W寇K广G禄L阙Q东D欧O殳S沃W利L蔚W越Y夔K隆L师S巩G厍S聂N晁C勾G敖A融R冷L訾Z辛X阚K那N简J饶R空K曾Z毋W沙S乜N养Y鞠J须X丰F巢C关G蒯K相X查Z后H荆J红H游Y竺Z权Q逯L盖G益Y桓H公G";
@@ -45,7 +46,7 @@ function migrate(ownerId, exportData) {
   const profile = exportData.profile ? { ...emptyProfile(ownerId), ...exportData.profile, visibility: { ...PRIVATE, ...(exportData.profile.visibility || {}) } } : emptyProfile(ownerId);
   const maxContactId = contacts.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
   const maxRelationshipId = relationships.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
-  return write(ownerId, { version: 1, profile, contacts, relationships, nextContactId: maxContactId + 1, nextRelationshipId: maxRelationshipId + 1 });
+  return write(ownerId, { version: 1, profile, contacts, relationships, tagCatalog: [], nextContactId: maxContactId + 1, nextRelationshipId: maxRelationshipId + 1 });
 }
 function requireData(ownerId) {
   const data = read(ownerId);
@@ -184,7 +185,19 @@ function handle(ownerId, path, method = "GET", payload) {
     recentContacts: data.contacts.slice().sort((a, b) => b.id - a.id).slice(0, 3)
   };
   if (route === "/maps/cities" && method === "GET") return count(data.contacts.map(item => item.city));
-  if (route === "/tags" && method === "GET") return count(data.contacts.flatMap(item => item.tags || []));
+  if (route === "/tags" && method === "GET") {
+    const counts = new Map(count(data.contacts.flatMap(item => item.tags || [])).map(item => [item.name, item.count]));
+    (data.tagCatalog || []).forEach(name => { if (!counts.has(name)) counts.set(name, 0); });
+    return Array.from(counts, ([name, amount]) => ({ name, count: amount })).sort((a, b) => a.name.localeCompare(b.name, "zh"));
+  }
+  if (route === "/tags" && method === "POST") {
+    const name = text(payload && payload.name, "标签", 20, true);
+    if (SUGGESTED_TAGS.includes(name) || (data.tagCatalog || []).includes(name) || data.contacts.some(item => (item.tags || []).includes(name))) throw new Error("标签已存在");
+    if ((data.tagCatalog || []).length >= 100) throw new Error("自定义标签最多100个");
+    data.tagCatalog = [...(data.tagCatalog || []), name];
+    write(ownerId, data);
+    return { name, count: 0 };
+  }
   if (route === "/organizations" && method === "GET") return count(data.contacts.map(item => item.organization));
   throw new Error("本地接口暂不支持此操作");
 }

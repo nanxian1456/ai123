@@ -33,3 +33,31 @@ test("contact filters combine labels with search and return to all contacts", as
   assert.equal(page.data.selectedTag, "");
   assert.equal(calls[1], "/contacts/directory?keyword=%E5%BC%A0");
 });
+
+test("custom label button creates a label at the end of the filter bar", async () => {
+  const calls = [];
+  const modals = [];
+  let definition;
+  const tags = [];
+  vm.runInNewContext(source, {
+    require: id => id.includes("contact-tags") ? require("../miniprogram/utils/contact-tags") : {
+      request: (route, method, payload) => {
+        calls.push({ route, method, payload });
+        if (route === "/tags" && method === "POST") { tags.push({ name: payload.name, count: 0 }); return Promise.resolve({ name: payload.name, count: 0 }); }
+        return Promise.resolve(route === "/tags" ? tags : []);
+      },
+      showError: error => { throw error; }
+    },
+    Page: value => { definition = value; },
+    wx: { showModal: options => modals.push(options), showToast: () => {} },
+    setTimeout
+  });
+  const page = { ...definition, data: structuredClone(definition.data), setData(values) { Object.assign(this.data, values); } };
+  page.createTag();
+  assert.equal(modals[0].editable, true);
+  modals[0].success({ confirm: true, content: "南京大学计算机学院" });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls[0].route, "/tags");
+  assert.equal(calls[0].method, "POST");
+  assert.equal(page.data.tags.at(-1).name, "南京大学计算机学院");
+});

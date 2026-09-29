@@ -14,7 +14,7 @@ function directoryGroups(contacts) {
 }
 
 Page({
-  data: { keyword: "", city: "", selectedTag: "", contacts: [], groups: [], tags: filterTags([]), letters: LETTERS.map((letter) => ({ letter, available: false })), scrollIntoView: "" },
+  data: { keyword: "", city: "", selectedTag: "", contacts: [], groups: [], tags: filterTags([]), creatingTag: false, letters: LETTERS.map((letter) => ({ letter, available: false })), scrollIntoView: "" },
   onShow() {
     const city = wx.getStorageSync("contact-filter-city") || this.data.city;
     wx.removeStorageSync("contact-filter-city");
@@ -37,6 +37,19 @@ Page({
   onKeyword(event) { this.setData({ keyword: event.detail.value }); },
   search() { this.loadContacts(); },
   selectTag(event) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: tag }); this.loadContacts(); },
+  createTag() {
+    if (this.data.creatingTag) return;
+    wx.showModal({ title: "新增自定义标签", editable: true, placeholderText: "输入学校或院系名称", confirmText: "添加", success: (result) => {
+      if (!result.confirm) return;
+      const name = String(result.content || "").trim();
+      if (!name) return showError(new Error("请输入标签名称"));
+      this.setData({ creatingTag: true });
+      request("/tags", "POST", { name }).then(() => {
+        this.loadTags();
+        wx.showToast({ title: "标签已添加", icon: "success" });
+      }).catch(showError).finally(() => this.setData({ creatingTag: false }));
+    } });
+  },
   clearCity() { this.setData({ city: "" }); this.loadContacts(); },
   jumpLetter(event) {
     const letter = event.currentTarget.dataset.letter;

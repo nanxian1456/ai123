@@ -34,6 +34,21 @@ test("relationship deletion follows contact deletion", () => {
   assert.equal(local.handle("one", `/graphs/contacts/${first.id}`).edges.length, 0);
 });
 
+test("custom tag catalog stays local per account before assignment", () => {
+  store.clear();
+  local.migrate("one", blank("one"));
+  local.migrate("two", blank("two"));
+  assert.deepEqual(local.handle("one", "/tags", "POST", { name: " 南京大学计算机学院 " }), { name: "南京大学计算机学院", count: 0 });
+  assert.equal(local.handle("one", "/tags")[0].count, 0);
+  assert.equal(local.handle("two", "/tags").length, 0);
+  assert.throws(() => local.handle("one", "/tags", "POST", { name: "南京大学计算机学院" }), /已存在/);
+  const contact = local.handle("one", "/contacts", "POST", { name: "王老师", tags: ["南京大学计算机学院"] });
+  assert.equal(local.handle("one", "/tags")[0].count, 1);
+  local.handle("one", `/contacts/${contact.id}`, "DELETE");
+  assert.equal(local.handle("one", "/tags")[0].count, 0);
+  assert.deepEqual(local.read("one").tagCatalog, ["南京大学计算机学院"]);
+});
+
 test("failed migration never creates empty local data", async () => {
   store.clear();
   store.set("ai-network-auth-token", "old-token");

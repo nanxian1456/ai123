@@ -121,36 +121,17 @@ test("suggested tags can be added and removed without replacing custom tags", ()
   assert.equal(page.data.form.tagsText, "校友");
 });
 
-test("custom school and department tags can be added and removed", () => {
-  const { page } = createPage(() => Promise.resolve([]));
-  page.onCustomTagInput({ detail: { value: "南京大学计算机学院" } });
-  page.addCustomTag();
+test("a custom tag created from the directory can be assigned and removed", async () => {
+  const { page, calls } = createPage(route => Promise.resolve(route === "/tags" ? [{ name: "南京大学计算机学院", count: 0 }] : []));
+  page.loadTags();
+  await flush();
+  assert.equal(page.data.suggestedTags.at(-1).name, "南京大学计算机学院");
+  page.toggleSuggestedTag({ currentTarget: { dataset: { tag: "南京大学计算机学院" } } });
   assert.deepEqual(Array.from(page.data.selectedTags), ["南京大学计算机学院"]);
-  assert.equal(page.data.customTagInput, "");
-  page.onCustomTagInput({ detail: { value: "南京大学计算机学院" } });
-  page.addCustomTag();
-  assert.equal(page.data.selectedTags.length, 1);
-  page.removeTag({ currentTarget: { dataset: { tag: "南京大学计算机学院" } } });
-  assert.equal(page.data.form.tagsText, "");
-});
-
-test("custom tag validation prevents overlong labels and too many tags", () => {
-  const { page, calls } = createPage(() => Promise.resolve([]));
-  page.onCustomTagInput({ detail: { value: "超过二十个字的院系名称超过二十个字的院系名称" } });
-  page.addCustomTag();
-  assert.equal(page.data.selectedTags.length, 0);
-  assert.match(calls.toasts[0].title, /不超过20字/);
-  page.data.form.tagsText = Array.from({ length: 10 }, (_, index) => `标签${index}`).join("，");
-  page.onCustomTagInput({ detail: { value: "新院系" } });
-  page.addCustomTag();
-  assert.equal(page.data.customTagInput, "新院系");
-});
-
-test("saving includes a custom tag still in the input", async () => {
-  const { page, calls } = createPage(() => Promise.resolve([]));
   page.data.form.name = "王老师";
-  page.onCustomTagInput({ detail: { value: "南京大学" } });
   page.save();
   await flush();
-  assert.deepEqual(Array.from(calls.requests[1][2].tags), ["南京大学"]);
+  assert.deepEqual(Array.from(calls.requests.at(-1)[2].tags), ["南京大学计算机学院"]);
+  page.removeTag({ currentTarget: { dataset: { tag: "南京大学计算机学院" } } });
+  assert.equal(page.data.form.tagsText, "");
 });

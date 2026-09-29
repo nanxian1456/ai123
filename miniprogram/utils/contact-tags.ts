@@ -12,7 +12,8 @@ export function filterTags(tags: Array<{ name: string; count: number }>): Array<
   ];
 }
 
-export function suggestedTagOptions(value: string): Array<{ name: string; selected: boolean }> {
+export function suggestedTagOptions(value: string, tags: Array<{ name: string }> = []): Array<{ name: string; selected: boolean }> {
   const selected = new Set(splitTags(value));
-  return SUGGESTED_TAGS.map(name => ({ name, selected: selected.has(name) }));
+  const names = [...SUGGESTED_TAGS, ...tags.map(({ name }) => name).filter(name => !SUGGESTED_TAGS.includes(name))];
+  return names.map(name => ({ name, selected: selected.has(name) }));
 }
