@@ -1,5 +1,6 @@
 const { request, showError } = require("../../utils/api");
 const { findPotentialDuplicates } = require("../../utils/duplicates");
+const { splitTags, suggestedTagOptions } = require("../../utils/contact-tags");
 
 const AI_FIELDS = [
   { key: "name", label: "姓名" }, { key: "organization", label: "单位" },
@@ -9,7 +10,6 @@ const AI_FIELDS = [
   { key: "note", label: "备注" }
 ];
 const CONTACT_FIELDS = AI_FIELDS.filter((item) => item.key !== "tags").map((item) => item.key);
-const splitTags = (value) => value.split(/[，,]/).map((item) => item.trim()).filter(Boolean);
 const previewFields = (data) => AI_FIELDS.map(({ key, label }) => {
   const raw = data[key];
   const value = Array.isArray(raw) ? raw.join("，") : typeof raw === "string" ? raw.trim() : "";
@@ -20,16 +20,31 @@ Page({
   data: {
     id: "",
     form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" },
-    aiText: "", aiDraft: null, aiFields: [], extracting: false, saving: false, importCode: "", importing: false
+    aiText: "", aiDraft: null, aiFields: [], extracting: false, saving: false, importCode: "", importing: false,
+    suggestedTags: suggestedTagOptions("")
   },
   onLoad(query) { if (query.id) this.loadContact(query.id); },
   loadContact(id) {
     request(`/contacts/${id}`).then((contact) => {
-      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText: (contact.tags || []).join("，") } });
+      const tagsText = (contact.tags || []).join("，");
+      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText }, suggestedTags: suggestedTagOptions(tagsText) });
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     }).catch(showError);
   },
-  input(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
+  input(event) {
+    const field = event.currentTarget.dataset.field;
+    const updates = { [`form.${field}`]: event.detail.value };
+    if (field === "tagsText") updates.suggestedTags = suggestedTagOptions(event.detail.value);
+    this.setData(updates);
+  },
+  toggleSuggestedTag(event) {
+    const tag = event.currentTarget.dataset.tag;
+    const tags = Array.from(new Set(splitTags(this.data.form.tagsText)));
+    const next = tags.includes(tag) ? tags.filter((item) => item !== tag) : [...tags, tag];
+    if (next.length > 10) return wx.showToast({ title: "标签最多10个", icon: "none" });
+    const tagsText = next.join("，");
+    this.setData({ "form.tagsText": tagsText, suggestedTags: suggestedTagOptions(tagsText) });
+  },
   importCodeInput(event) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
   importByCode() {
     if (this.data.importing) return;
@@ -86,7 +101,10 @@ Page({
     const existingTags = splitTags(this.data.form.tagsText || "");
     const extractedTags = Array.isArray(data.tags) ? data.tags.map((tag) => tag.trim()).filter(Boolean) : [];
     const tags = Array.from(new Set([...existingTags, ...extractedTags])).slice(0, 10);
-    if (tags.length > existingTags.length) updates["form.tagsText"] = tags.join("，");
+    if (tags.length > existingTags.length) {
+      updates["form.tagsText"] = tags.join("，");
+      updates.suggestedTags = suggestedTagOptions(updates["form.tagsText"]);
+    }
     if (!Object.keys(updates).length) { wx.showToast({ title: "已有资料未被覆盖", icon: "none" }); return; }
     this.setData(updates);
     wx.pageScrollTo({ selector: "#contact-form", duration: 250 });

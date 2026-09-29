@@ -1,4 +1,5 @@
 const { request, showError } = require("../../utils/api");
+const { filterTags } = require("../../utils/contact-tags");
 
 const LETTERS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
@@ -13,18 +14,21 @@ function directoryGroups(contacts) {
 }
 
 Page({
-  data: { keyword: "", city: "", selectedTag: "", contacts: [], groups: [], tags: [], letters: LETTERS.map((letter) => ({ letter, available: false })), scrollIntoView: "" },
+  data: { keyword: "", city: "", selectedTag: "", contacts: [], groups: [], tags: filterTags([]), letters: LETTERS.map((letter) => ({ letter, available: false })), scrollIntoView: "" },
   onShow() {
     const city = wx.getStorageSync("contact-filter-city") || this.data.city;
     wx.removeStorageSync("contact-filter-city");
     this.setData({ city }); this.loadTags(); this.loadContacts();
   },
-  loadTags() { request("/tags").then((tags) => this.setData({ tags })).catch(showError); },
+  loadTags() { request("/tags").then((tags) => this.setData({ tags: filterTags(tags) })).catch(showError); },
   loadContacts() {
     const params = [`keyword=${encodeURIComponent(this.data.keyword)}`];
     if (this.data.city) params.push(`city=${encodeURIComponent(this.data.city)}`);
     if (this.data.selectedTag) params.push(`tag=${encodeURIComponent(this.data.selectedTag)}`);
-    request(`/contacts/directory?${params.join("&")}`).then((contacts) => {
+    const query = params.join("&");
+    this.activeQuery = query;
+    request(`/contacts/directory?${query}`).then((contacts) => {
+      if (this.activeQuery !== query) return;
       const groups = directoryGroups(contacts);
       const available = new Set(groups.map((group) => group.letter));
       this.setData({ contacts, groups, letters: LETTERS.map((letter) => ({ letter, available: available.has(letter) })), scrollIntoView: "" });
@@ -32,7 +36,7 @@ Page({
   },
   onKeyword(event) { this.setData({ keyword: event.detail.value }); },
   search() { this.loadContacts(); },
-  selectTag(event) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: this.data.selectedTag === tag ? "" : tag }); this.loadContacts(); },
+  selectTag(event) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: tag }); this.loadContacts(); },
   clearCity() { this.setData({ city: "" }); this.loadContacts(); },
   jumpLetter(event) {
     const letter = event.currentTarget.dataset.letter;

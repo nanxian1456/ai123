@@ -16,7 +16,7 @@ function createPage(request) {
     navigateBack: () => { calls.navigations += 1; }
   };
   vm.runInNewContext(pageSource, {
-    require: moduleId => moduleId.includes("duplicates") ? require("../miniprogram/utils/duplicates") : ({
+    require: moduleId => moduleId.includes("duplicates") ? require("../miniprogram/utils/duplicates") : moduleId.includes("contact-tags") ? require("../miniprogram/utils/contact-tags") : ({
       request: (...args) => { calls.requests.push(args); return request(...args); },
       showError: error => calls.toasts.push({ title: error.message, icon: "none" })
     }),
@@ -109,4 +109,14 @@ test("duplicate contact requires confirmation before saving", async () => {
   calls.modals[0].success({ confirm: false });
   await flush();
   assert.equal(page.data.saving, false);
+});
+
+test("suggested tags can be added and removed without replacing custom tags", () => {
+  const { page } = createPage(() => Promise.resolve([]));
+  page.input({ currentTarget: { dataset: { field: "tagsText" } }, detail: { value: "校友" } });
+  page.toggleSuggestedTag({ currentTarget: { dataset: { tag: "人工智能" } } });
+  assert.equal(page.data.form.tagsText, "校友，人工智能");
+  assert.equal(page.data.suggestedTags.find(item => item.name === "人工智能").selected, true);
+  page.toggleSuggestedTag({ currentTarget: { dataset: { tag: "人工智能" } } });
+  assert.equal(page.data.form.tagsText, "校友");
 });
