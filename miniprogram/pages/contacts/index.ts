@@ -20,7 +20,7 @@ Page({
   selectTag(event: any) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: tag }); this.loadContacts(); },
   createTag() {
     if (this.data.creatingTag) return;
-    wx.showModal({ title: "新增自定义标签", editable: true, placeholderText: "输入学校或院系名称", confirmText: "添加", success: async (result: any) => {
+    wx.showModal({ title: "新增自定义标签", editable: true, placeholderText: "请输入你想要的标签内容", confirmText: "添加", success: async (result: any) => {
       if (!result.confirm) return;
       const name = String(result.content || "").trim();
       if (!name) return showError(new Error("请输入标签名称"));
