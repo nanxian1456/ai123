@@ -21,6 +21,7 @@
 2. 查看待提交文件列表，确认不存在意外的大目录、构建产物、上传文件或本机配置。
 3. 检查 `project.config.json` 的 `miniprogramRoot` 仍是 `miniprogram/`。
 4. 运行与改动相关的前端语法检查或后端测试。
+   小程序修改 TypeScript 后运行 `npm run build` 生成 JavaScript，再执行 `npm run check`；不要手工维护两份逻辑。后端运行 `backend/mvnw.cmd -f backend/pom.xml verify`，发布前运行 `python scripts/verify-backend-artifact.py`。
 5. 更新根目录 `CHANGELOG.md`，只在“最近改动”表增加真实改动；时间使用北京时间，改动人核对 `git config user.name`，内容写清实际影响。新条目的提交编号填“本次提交”，旧条目使用可查证的短提交号；正式日志不得留“待提交”或示例姓名。
 6. 说明功能变化、验证结果和可能影响的前后端接口。
 

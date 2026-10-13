@@ -8,3 +8,6 @@
 .preview view:not(.preview-title) { display: flex; justify-content: space-between; gap: 16rpx; padding: 10rpx 0; font-size: 26rpx; }
 .preview view text { margin: 0; }
 .danger-button { background: #a43f37; color: #fff; }
+
+.backup-reminder { padding: 20rpx; margin-bottom: 24rpx; border-radius: 8rpx; background: #e8f2fa; color: #244b68; font-size: 26rpx; line-height: 1.6; }
+.backup-status { padding: 16rpx 0; color: #176b9d; font-size: 26rpx; }

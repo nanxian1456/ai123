@@ -39,13 +39,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
-        registry.addInterceptor(authInterceptor).addPathPatterns("/api/**").excludePathPatterns("/api/auth/**");
+        registry.addInterceptor(authInterceptor).addPathPatterns("/api/**", "/uploads/avatars/**").excludePathPatterns("/api/auth/**");
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String location = java.nio.file.Path.of(avatarStorageDirectory).toAbsolutePath().normalize().toUri().toString();
-        registry.addResourceHandler("/uploads/avatars/**").addResourceLocations(location);
         registry.addResourceHandler("/videos/**").addResourceLocations("classpath:/static/videos/");
     }
 }

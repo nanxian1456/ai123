@@ -6,8 +6,8 @@ import jakarta.validation.constraints.Size;
 public record PublishedProfileRequest(
         @NotNull Boolean published,
         @Size(max = 30) String nickname,
-        @Size(max = 100) String organization,
-        @Size(max = 100) String position,
-        @Size(max = 100) String city,
-        @Size(max = 500) String bio
+        @Size(max = 60) String organization,
+        @Size(max = 40) String position,
+        @Size(max = 30) String city,
+        @Size(max = 200) String bio
 ) { }
