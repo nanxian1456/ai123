@@ -29,9 +29,9 @@ test("relationship deletion follows contact deletion", () => {
   const first = local.handle("one", "/contacts", "POST", { name: "张三" });
   const second = local.handle("one", "/contacts", "POST", { name: "李四" });
   local.handle("one", "/relationships", "POST", { sourceId: first.id, targetId: second.id, type: "合作" });
-  assert.equal(local.handle("one", `/graphs/contacts/${first.id}`).edges.length, 1);
+  assert.equal(local.handle("one", `/contacts/${first.id}/relationships`).length, 1);
   local.handle("one", `/contacts/${second.id}`, "DELETE");
-  assert.equal(local.handle("one", `/graphs/contacts/${first.id}`).edges.length, 0);
+  assert.equal(local.handle("one", `/contacts/${first.id}/relationships`).length, 0);
 });
 
 test("custom tag catalog stays local per account before assignment", () => {

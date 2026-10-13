@@ -82,12 +82,6 @@ function relationshipView(data, contactId, item) {
   const summary = [other.organization, item.note].filter(Boolean).join(" · ");
   return { id: item.id, type: item.type, label, summary, other: { id: other.id, name: other.name, organization: other.organization } };
 }
-function graph(data, id) {
-  const center = findContact(data, id);
-  const edges = data.relationships.filter(item => item.sourceId === center.id || item.targetId === center.id);
-  const ids = Array.from(new Set([center.id, ...edges.flatMap(item => [item.sourceId, item.targetId])]));
-  return { nodes: ids.map(contactId => { const item = findContact(data, contactId); return { id: item.id, name: item.name, organization: item.organization, isCenter: item.id === center.id }; }), edges };
-}
 function handle(ownerId, path, method = "GET", payload) {
   const data = requireData(ownerId);
   const [route, search = ""] = path.split("?");
@@ -176,8 +170,6 @@ function handle(ownerId, path, method = "GET", payload) {
     write(ownerId, data);
     return null;
   }
-  const graphRoute = route.match(/^\/graphs\/contacts\/(\d+)$/);
-  if (graphRoute && method === "GET") return graph(data, graphRoute[1]);
   if (route === "/dashboard" && method === "GET") return {
     contactCount: data.contacts.length,
     organizationCount: new Set(data.contacts.map(item => item.organization).filter(Boolean)).size,

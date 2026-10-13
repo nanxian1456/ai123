@@ -9,8 +9,6 @@
     "pages/contacts-batch/index",
     "pages/contact-detail/index",
     "pages/map/index",
-    "pages/graph/index",
-    "pages/knowledge-graph/index",
     "pages/relationship-form/index",
     "pages/settings/index",
     "pages/settings-profile/index",
@@ -32,11 +30,22 @@
     "selectedColor": "#1677d2",
     "backgroundColor": "#ffffff",
     "list": [
-      { "pagePath": "pages/index/index", "text": "首页" },
-      { "pagePath": "pages/contacts/index", "text": "联系人" },
-      { "pagePath": "pages/map/index", "text": "地图" },
-      { "pagePath": "pages/knowledge-graph/index", "text": "知识图谱" },
-      { "pagePath": "pages/me/index", "text": "我的" }
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/contacts/index",
+        "text": "联系人"
+      },
+      {
+        "pagePath": "pages/map/index",
+        "text": "地图"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的"
+      }
     ]
   },
   "style": "v2",

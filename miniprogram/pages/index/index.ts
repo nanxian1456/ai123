@@ -17,7 +17,6 @@ Page({
   goAdd() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
   goContacts() { wx.switchTab({ url: "/pages/contacts/index" }); },
   goMap() { wx.switchTab({ url: "/pages/map/index" }); },
-  goKnowledgeGraph() { wx.switchTab({ url: "/pages/knowledge-graph/index" }); },
   goAi() { wx.navigateTo({ url: "/pages/contact-form/index?mode=ai" }); },
   openContact(event: any) { wx.navigateTo({ url: `/pages/contact-detail/index?id=${event.currentTarget.dataset.id}` }); }
 });
