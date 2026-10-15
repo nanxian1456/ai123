@@ -10,13 +10,78 @@ function emptyProfile(ownerId) {
   return { ownerId, nickname: "", organization: "", position: "", city: "", bio: "", avatarType: "male-1", avatarUrl: "", visibility: { ...PRIVATE }, profileCompleted: false, contactCode: "" };
 }
 function key(ownerId) { return PREFIX + ownerId; }
+
+// 微信单个 storage key 最多约 1MB。联系人和关系按大小拆成多段，每段远低于上限；
+// 主 key 只保存资料、标签目录、编号和分段信息。每次写入使用新的“代”编号：
+// 先写新分段，再切换主 key，最后删除旧分段，写到一半失败时旧数据保持完整。
+const CHUNK_BYTES = 512 * 1024;
+const COLLECTIONS = ["contacts", "relationships"];
+function chunkKey(ownerId, generation, name, index) { return `${key(ownerId)}:g${generation}:${name}:${index}`; }
+function utf8Bytes(value) {
+  let bytes = 0;
+  for (const char of JSON.stringify(value)) {
+    const code = char.codePointAt(0);
+    bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+  }
+  return bytes;
+}
+function splitChunks(items) {
+  const chunks = [];
+  let current = [];
+  let size = 2;
+  for (const item of items) {
+    const itemSize = utf8Bytes(item) + 1;
+    if (current.length && size + itemSize > CHUNK_BYTES) { chunks.push(current); current = []; size = 2; }
+    current.push(item);
+    size += itemSize;
+  }
+  if (current.length) chunks.push(current);
+  return chunks;
+}
+function removeQuietly(storageKey) { try { wx.removeStorageSync(storageKey); } catch (_) { /* 清理失败不影响已保存的数据 */ } }
+function removeGeneration(ownerId, layout) {
+  COLLECTIONS.forEach(name => { for (let index = 0; index < (layout[name] || 0); index++) removeQuietly(chunkKey(ownerId, layout.generation, name, index)); });
+}
 function read(ownerId) {
   const stored = wx.getStorageSync(key(ownerId));
-  return stored && stored.version === 1 ? stored : null;
+  if (!stored || stored.version !== 1) return null;
+  if (!stored.layout) return stored; // 旧版本：全部数据都在主 key 里，下次写入时自动拆分
+  const { layout, ...data } = stored;
+  COLLECTIONS.forEach(name => {
+    data[name] = [];
+    for (let index = 0; index < layout[name]; index++) {
+      const part = wx.getStorageSync(chunkKey(ownerId, layout.generation, name, index));
+      if (!Array.isArray(part)) throw new Error("本机数据不完整，请从备份恢复");
+      data[name].push(...part);
+    }
+  });
+  return data;
 }
 function write(ownerId, value) {
-  wx.setStorageSync(key(ownerId), value);
+  const previous = wx.getStorageSync(key(ownerId));
+  const oldLayout = previous && previous.version === 1 && previous.layout ? previous.layout : null;
+  const generation = oldLayout ? oldLayout.generation + 1 : 1;
+  const { contacts = [], relationships = [], ...rest } = value;
+  const chunks = { contacts: splitChunks(contacts), relationships: splitChunks(relationships) };
+  const written = [];
+  try {
+    COLLECTIONS.forEach(name => chunks[name].forEach((part, index) => {
+      const storageKey = chunkKey(ownerId, generation, name, index);
+      written.push(storageKey);
+      wx.setStorageSync(storageKey, part);
+    }));
+    wx.setStorageSync(key(ownerId), { ...rest, version: 1, layout: { generation, contacts: chunks.contacts.length, relationships: chunks.relationships.length } });
+  } catch (error) {
+    written.forEach(removeQuietly);
+    throw new Error("手机存储空间不足，本次修改未保存。请清理微信存储或删除部分联系人后重试");
+  }
+  if (oldLayout) removeGeneration(ownerId, oldLayout);
   return value;
+}
+function storageUsage() {
+  if (typeof wx.getStorageInfoSync !== "function") return null;
+  const info = wx.getStorageInfoSync();
+  return { usedKB: info.currentSize, limitKB: info.limitSize };
 }
 function text(value, label, limit, required = false) {
   const result = String(value == null ? "" : value).trim();
@@ -194,4 +259,4 @@ function handle(ownerId, path, method = "GET", payload) {
   throw new Error("本地接口暂不支持此操作");
 }
 
-module.exports = { read, migrate, handle, write, key, initial };
+module.exports = { read, migrate, handle, write, key, initial, storageUsage };

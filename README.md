@@ -34,9 +34,11 @@
 
 服务启动后访问地址为 `http://127.0.0.1:8080`。后端用于微信登录、首次导出旧数据、AI 提取和导入码公开资料交换；既有 H2 数据不会自动删除。
 
-后端配置分为 `application.properties`（公共参数）、`application-dev.properties`（本机 H2）和 `application-prod.properties`（PostgreSQL）。默认使用 `dev`，上述命令不变；开发环境会读取 Git 忽略的 `backend/src/main/resources/application-local.properties`，保留现有本机密钥配置。不要把真实密钥写入已跟踪的配置文件。部署时显式选择 `prod`，生产环境不会导入 `application-local.properties`，必须通过环境变量提供密钥和数据库连接。
+后端配置分为 `application.properties`（公共参数）、`application-dev.properties`（本机 H2）和 `application-prod.properties`（PostgreSQL）。后端没有默认环境，未指定 `dev` 或 `prod` 时会拒绝启动，避免部署时误用开发配置；上述 `mvnw.cmd spring-boot:run` 和 `start.ps1` 命令已自动选择 `dev`，用法不变。直接运行 jar 时必须加 `--spring.profiles.active=prod`。开发环境的本机密钥放在 Git 忽略的 `backend/config/application-local.properties`（不在 `src/main/resources` 下，构建时不会复制进 `target` 或 jar）；`src/main/resources/application-local.properties` 已不再读取，也被排除在打包之外，请删除该旧文件。不要把真实密钥写入已跟踪的配置文件。生产环境不会导入 `application-local.properties`，必须通过环境变量提供密钥和数据库连接。
 
-生产环境先准备 PostgreSQL 数据库及独立账号，并设置 `SPRING_DATASOURCE_URL`（`jdbc:postgresql://主机:5432/数据库名`）、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、微信登录密钥、`AUTH_TOKEN_SECRET` 和 `APP_PUBLIC_BASE_URL`，再运行 `.\start.ps1 -Profile prod`。生产配置会自动创建/更新当前表结构，但**不会搬迁 H2 中的账号资料、固定导入码或公开资料**；已有用户切换数据库前应备份并安排数据迁移，不能直接指向空库上线。生产日志默认写入 `backend/logs/ai-network.log`，按 10MB 滚动并保留 30 份。`/actuator/health` 和 `/actuator/info` 可用于基础监控；未开放无认证的 metrics HTTP 端点。
+生产环境先准备 PostgreSQL 数据库及独立账号，并设置 `SPRING_DATASOURCE_URL`（`jdbc:postgresql://主机:5432/数据库名`）、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、微信登录密钥、`AUTH_TOKEN_SECRET` 和 `APP_PUBLIC_BASE_URL`，再运行 `.\start.ps1 -Profile prod`。生产配置会自动创建/更新当前表结构，但**不会搬迁 H2 中的账号资料、固定导入码或公开资料**；已有用户切换数据库前应备份并安排数据迁移，不能直接指向空库上线。生产日志默认写入 `backend/logs/ai-network.log`，按 10MB 滚动并保留 30 份。`/actuator/health` 和 `/actuator/info` 可用于基础监控；未开放无认证的 metrics HTTP 端点。生产环境默认按 `X-Forwarded-For` 识别经 Nginx 或负载均衡转发的真实客户端 IP 用于限流，Tomcat 默认只信任内网地址的代理；代理不在内网时设置 `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES`（可信代理 IP 的正则），不经代理直接对外时可设置 `FORWARD_HEADERS_STRATEGY=none`。
+
+API 限流按已验证的登录身份计数；未登录或令牌无效的请求按 IP 计数。微信登录接口的请求超时为 10 秒。旧版上传到服务器的头像只供本人在首次迁移时下载（需登录令牌），服务器不再提供头像上传接口。
 
 ## 微信登录与用户隔离
 
@@ -44,7 +46,7 @@
 
 首次使用本地版本时，小程序通过受认证的 `/api/local-export` 一次性读取该账号的旧资料、联系人和关系，全部成功写入本机后才切换到本地读写。导出或头像下载失败不会创建空数据，可重试。之后联系人和关系不会写回服务器；只有用户主动公开的资料会通过单独接口发布，用于导入码查询。旧服务器资料不会自动公开。首次迁移需要后端在线。
 
-**本地存储注意事项：** 联系人和关系只在当前手机，不会自动同步到其他手机；卸载小程序、清理微信存储或更换手机可能导致新数据丢失。可在“设置 → 账号安全 → 数据备份与恢复”生成加密文件，通过微信文件分享后另存到安全位置。恢复前可预览联系人和关系数量，恢复会完整覆盖当前账号的本机数据；请先备份当前手机。备份密码至少 10 位，不会上传服务器；忘记密码无法恢复。备份包含本机头像。退出登录只清除登录状态，不清除本机资料。导入码需要网络与后端；仅公开昵称及选定字段会发布，关闭昵称公开会撤销可导入资料。头像仍保存在本机，不通过导入码分享。微信登录、旧数据首次迁移和 DeepSeek AI 提取也需要网络与后端。
+**本地存储注意事项：** 联系人和关系按大小分段保存，避免超过微信单个存储项约 1MB 的上限；写入失败时保留原数据并提示存储空间不足。微信为每个小程序提供的本机存储总量约 10MB。联系人和关系只在当前手机，不会自动同步到其他手机；卸载小程序、清理微信存储或更换手机可能导致新数据丢失。可在“设置 → 账号安全 → 数据备份与恢复”生成加密文件，通过微信文件分享后另存到安全位置。恢复前可预览联系人和关系数量，恢复会完整覆盖当前账号的本机数据；请先备份当前手机。备份密码至少 10 位，不会上传服务器；忘记密码无法恢复。备份包含本机头像。退出登录只清除登录状态，不清除本机资料。导入码需要网络与后端；仅公开昵称及选定字段会发布，关闭昵称公开会撤销可导入资料。头像仍保存在本机，不通过导入码分享。微信登录、旧数据首次迁移和 DeepSeek AI 提取也需要网络与后端。
 
 新增联系人页支持粘贴文字后预览 AI 提取结果、保存时提醒可能重复的联系人，以及按“姓名 | 单位 | 职务 | 城市 | 电话”逐行批量录入。批量保存会先校验所有选中记录，再一次写入本机。不提供拍照或上传名片进行 OCR 识别。真机验证步骤及尚未完成的验证见 [真机测试清单](docs/真机测试清单.md)。
 

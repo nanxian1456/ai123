@@ -19,7 +19,7 @@ function backendRequest(path, method, data, token) {
     header: { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     success(response) {
       if (response.statusCode >= 200 && response.statusCode < 300) resolve(response.data);
-      else reject(new Error(response.statusCode === 401 ? "SESSION_INVALID" : ((response.data && response.data.detail) || "服务请求失败")));
+      else reject(new Error(response.statusCode === 401 ? "SESSION_INVALID" : ((response.data && (response.data.message || response.data.detail)) || "服务请求失败")));
     },
     fail: () => reject(new Error("无法连接后端，请确认 Java 服务已启动"))
   }));

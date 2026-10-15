@@ -12,16 +12,13 @@ import java.util.Arrays;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
     private final AuthInterceptor authInterceptor;
-    private final String avatarStorageDirectory;
     private final String[] allowedOriginPatterns;
 
     public WebConfig(
             AuthInterceptor authInterceptor,
-            @Value("${avatar.storage-dir}") String avatarStorageDirectory,
             @Value("${cors.allowed-origin-patterns}") String allowedOriginPatterns
     ) {
         this.authInterceptor = authInterceptor;
-        this.avatarStorageDirectory = avatarStorageDirectory;
         this.allowedOriginPatterns = Arrays.stream(allowedOriginPatterns.split(",")).map(String::trim).filter(value -> !value.isBlank()).toArray(String[]::new);
     }
 
@@ -39,13 +36,14 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
-        registry.addInterceptor(authInterceptor).addPathPatterns("/api/**").excludePathPatterns("/api/auth/**");
+        // Legacy avatars are served by LegacyAvatarController and require the owner's token.
+        registry.addInterceptor(authInterceptor)
+                .addPathPatterns("/api/**", "/uploads/avatars/**")
+                .excludePathPatterns("/api/auth/**");
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String location = java.nio.file.Path.of(avatarStorageDirectory).toAbsolutePath().normalize().toUri().toString();
-        registry.addResourceHandler("/uploads/avatars/**").addResourceLocations(location);
         registry.addResourceHandler("/videos/**").addResourceLocations("classpath:/static/videos/");
     }
 }
