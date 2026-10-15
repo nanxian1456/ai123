@@ -1,6 +1,7 @@
 const CryptoJS = require("../vendor/crypto-js");
 const local = require("./local-data");
 const workerKeys = require("./backup-worker");
+const categories = require("./categories");
 const FORMAT = "aimap-backup";
 const ROUNDS = 100000;
 const MAX_FILE_CHARS = 24 * 1024 * 1024;
@@ -47,6 +48,7 @@ function validateData(data, ownerId) {
       (item.tags != null && (!Array.isArray(item.tags) || item.tags.length > 10 || item.tags.some(tag => !field(tag, 20, true)) || new Set(item.tags).size !== item.tags.length)))) throw new Error("备份联系人字段无效");
   if (data.relationships.some(item => !id(item.sourceId) || !id(item.targetId) || item.sourceId === item.targetId || !field(item.type, 30, true) || !field(item.note, 200))) throw new Error("备份关系字段无效");
   if (data.tagCatalog != null && (!Array.isArray(data.tagCatalog) || data.tagCatalog.length > 100 || data.tagCatalog.some(name => typeof name !== "string" || !name.trim() || name !== name.trim() || name.length > 20) || new Set(data.tagCatalog).size !== data.tagCatalog.length)) throw new Error("备份标签目录无效");
+  categories.validate(data);
   const contactIds = new Set(data.contacts.map(item => item.id));
   const relationshipIds = new Set(data.relationships.map(item => item.id));
   if (contactIds.size !== data.contacts.length || relationshipIds.size !== data.relationships.length ||

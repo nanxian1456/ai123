@@ -1,3 +1,8 @@
+export interface LocalCategory {
+  id: string;
+  name: string;
+  children: LocalCategory[];
+}
 export interface LocalContact {
   id: number;
   ownerId: string;
@@ -10,6 +15,7 @@ export interface LocalContact {
   email?: string;
   note?: string;
   tags?: string[];
+  categoryIds?: string[];
 }
 export interface LocalData {
   version: number;
@@ -19,6 +25,9 @@ export interface LocalData {
   nextContactId: number;
   nextRelationshipId: number;
   tagCatalog?: string[];
+  categoryTree?: LocalCategory[];
+  nextCategoryId?: number;
+  dismissedCategories?: string[];
 }
 export function read(ownerId: string): LocalData | null;
 export function write(ownerId: string, value: LocalData): LocalData;

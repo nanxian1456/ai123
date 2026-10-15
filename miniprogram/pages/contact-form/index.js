@@ -50,13 +50,38 @@ Page({
         suggestedTags: (0, contact_tags_1.suggestedTagOptions)(""),
         availableTags: [],
         selectedTags: [],
+        categoryIds: null,
+        categoryNames: [],
     },
     onLoad(query) {
         if (query.id)
             this.setData({ id: query.id });
+        if (!query.id && query.categoryId) {
+            this.setData({ categoryIds: [query.categoryId] });
+            this.resolveCategories([query.categoryId]);
+        }
         this.loadTags();
         if (query.id)
             this.loadContact(query.id);
+    },
+    async resolveCategories(ids) {
+        if (!ids.length)
+            return this.setData({ categoryNames: [] });
+        this.setData({ categoryNames: ids.map(id => ({ id, name: id })) });
+        try {
+            const result = await (0, api_1.request)("/categories");
+            const names = new Map();
+            const pending = [...(result.tree || [])];
+            while (pending.length) {
+                const node = pending.pop();
+                names.set(node.id, node.name);
+                pending.push(...node.children);
+            }
+            this.setData({ categoryNames: ids.map(id => ({ id, name: names.get(id) || id })) });
+        }
+        catch (error) {
+            (0, api_1.showError)(error);
+        }
     },
     retryLoad() {
         if (this.data.id && !this.data.loading)
@@ -94,7 +119,9 @@ Page({
                 },
                 suggestedTags: (0, contact_tags_1.suggestedTagOptions)(tagsText, this.data.availableTags),
                 selectedTags: (0, contact_tags_1.splitTags)(tagsText),
+                categoryIds: Array.isArray(contact.categoryIds) ? contact.categoryIds : null,
             });
+            this.resolveCategories(this.data.categoryIds || []);
             wx.setNavigationBarTitle({ title: "编辑联系人" });
         }
         catch (error) {
@@ -278,7 +305,12 @@ Page({
                 title: "标签最多10个，每个不超过20字",
                 icon: "none",
             });
-        const payload = { ...form, name: form.name.trim(), tags };
+        const payload = {
+            ...form,
+            name: form.name.trim(),
+            tags,
+            ...(this.data.categoryIds ? { categoryIds: [...this.data.categoryIds] } : {}),
+        };
         delete payload.tagsText;
         this.setData({ saving: true });
         try {

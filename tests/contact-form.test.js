@@ -65,6 +65,17 @@ function createPage(request) {
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
+test("creating a contact from a graph branch persists the selected classification", async () => {
+  const { page, calls } = createPage(() => Promise.resolve([]));
+  page.onLoad({ categoryId: "cat7" });
+  page.input({ currentTarget: { dataset: { field: "name" } }, detail: { value: "分支联系人" } });
+  await page.save();
+  const saved = calls.requests.find(item => item[1] === "POST" && item[0] === "/contacts");
+  assert.ok(saved);
+  assert.ok(Array.isArray(saved[2].categoryIds));
+  assert.deepEqual([...saved[2].categoryIds], ["cat7"]);
+});
+
 test("edit identity is set before loading and save is blocked until load succeeds", async () => {
   let complete;
   const { page, calls } = createPage((route) =>
@@ -262,4 +273,12 @@ test("a custom tag created from the directory can be assigned and removed", asyn
   ]);
   page.removeTag({ currentTarget: { dataset: { tag: "南京大学计算机学院" } } });
   assert.equal(page.data.form.tagsText, "");
+});
+
+test("a contact opened from a graph category displays the category name", async () => {
+  const { page } = createPage(route => Promise.resolve(route === "/categories"
+    ? { tree: [{ id: "cat1", name: "大学", children: [{ id: "cat7", name: "同学", children: [] }] }] } : []));
+  page.onLoad({ categoryId: "cat7" });
+  await flush();
+  assert.equal(page.data.categoryNames[0].name, "同学");
 });

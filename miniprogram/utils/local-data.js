@@ -1,5 +1,6 @@
 const PREFIX = "ai-network-local-v1:";
 const { SUGGESTED_TAGS } = require("./contact-tags");
+const categories = require("./categories");
 const PRIVATE = { avatar: false, nickname: false, organization: false, position: false, city: false, bio: false };
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SURNAMES = "赵Z钱Q孙S李L周Z吴W郑Z王W冯F陈C褚C卫W蒋J沈S韩H杨Y朱Z秦Q尤Y许X何H吕L施S张Z孔K曹C严Y华H金J魏W陶T姜J戚Q谢X邹Z喻Y柏B水S窦D章Z云Y苏S潘P葛G奚X范F彭P郎L鲁L韦W昌C马M苗M凤F花H方F俞Y任R袁Y柳L鲍B史S唐T费F廉L岑C薛X雷L贺H倪N汤T滕T殷Y罗L毕B郝H邬W安A常C乐Y于Y时S傅F皮P卞B齐Q康K伍W余Y元Y卜B顾G孟M平P黄H和H穆M萧X尹Y姚Y邵S湛Z汪W祁Q毛M禹Y狄D米M贝B明M臧Z计J伏F成C戴D宋S茅M庞P熊X纪J舒S屈Q项X祝Z董D梁L杜D阮R蓝L闵M席X季J麻M强Q贾J路L娄L危W江J童T颜Y郭G梅M盛S林L刁D钟Z徐X邱Q骆L高G夏X蔡C田T樊F胡H凌L霍H虞Y万W支Z柯K昝Z管G卢L莫M经J房F裘Q缪M干G解X应Y宗Z丁D宣X贲B邓D郁Y单S杭H洪H包B诸Z左Z石S崔C吉J龚G程C嵇J邢X滑H裴P陆L荣R翁W荀X羊Y惠H甄Z曲Q家J封F芮R羿Y储C靳J汲J邴B糜M松S井J段D富F巫W乌W焦J巴B弓G牧M隗W山S谷G车C侯H宓M蓬P全Q郗X班B仰Y秋Q仲Z伊Y宫G宁N仇Q栾L暴B甘G钭T厉L戎R祖Z武W符F刘L景J詹Z束S龙L叶Y幸X司S韶S黎L蓟J薄B印Y宿S白B怀H蒲P台T从C鄂E索S赖L卓Z蔺L屠T蒙M池C乔Q阴Y胥X能N苍C双S闻W莘S党D翟Z谭T贡G劳L逄P姬J申S扶F堵D冉R宰Z郦L雍Y却Q璩Q桑S桂G濮P牛N寿S通T边B扈H燕Y冀J郏J浦P尚S农N温W别B庄Z晏Y柴C瞿Q阎Y充C慕M连L茹R习X宦H艾A鱼Y容R向X古G易Y慎S戈G廖L庾Y终Z暨J居J衡H步B都D耿G满M弘H匡K国G文W寇K广G禄L阙Q东D欧O殳S沃W利L蔚W越Y夔K隆L师S巩G厍S聂N晁C勾G敖A融R冷L訾Z辛X阚K那N简J饶R空K曾Z毋W沙S乜N养Y鞠J须X丰F巢C关G蒯K相X查Z后H荆J红H游Y竺Z权Q逯L盖G益Y桓H公G";
@@ -154,7 +155,7 @@ function text(value, label, limit, required = false) {
   if (result.length > limit) throw new Error(`${label}不能超过${limit}字`);
   return result;
 }
-function contactInput(payload) {
+function contactInput(payload, data) {
   if (!payload || typeof payload !== "object") throw new Error("联系人资料无效");
   const result = {};
   for (const [field, label, limit] of [["name", "姓名", 50], ["organization", "单位", 100], ["position", "职务", 50], ["city", "城市", 50], ["province", "省份", 50], ["phone", "电话", 30], ["email", "邮箱", 100], ["note", "备注", 500]]) {
@@ -166,6 +167,7 @@ function contactInput(payload) {
   result.tags = (payload.tags || []).map(item => text(item, "标签", 20, true));
   if (result.tags.length > 10) throw new Error("标签最多10个");
   result.tags = Array.from(new Set(result.tags));
+  if (Object.prototype.hasOwnProperty.call(payload, "categoryIds")) result.categoryIds = categories.contactIds(data, payload.categoryIds);
   return result;
 }
 function migrate(ownerId, exportData) {
@@ -176,7 +178,12 @@ function migrate(ownerId, exportData) {
   const profile = exportData.profile ? { ...emptyProfile(ownerId), ...exportData.profile, visibility: { ...PRIVATE, ...(exportData.profile.visibility || {}) } } : emptyProfile(ownerId);
   const maxContactId = contacts.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
   const maxRelationshipId = relationships.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
-  return write(ownerId, { version: 1, profile, contacts, relationships, tagCatalog: [], nextContactId: maxContactId + 1, nextRelationshipId: maxRelationshipId + 1 });
+  const value = { version: 1, profile, contacts, relationships, tagCatalog: [], nextContactId: maxContactId + 1, nextRelationshipId: maxRelationshipId + 1 };
+  for (const name of ["categoryTree", "nextCategoryId", "dismissedCategories"]) {
+    if (exportData[name] !== undefined) value[name] = exportData[name];
+  }
+  categories.validate(value);
+  return write(ownerId, value);
 }
 function requireData(ownerId) {
   const data = read(ownerId);
@@ -218,6 +225,11 @@ function handle(ownerId, path, method = "GET", payload) {
   const params = {};
   search.split("&").filter(Boolean).forEach(part => { const [name, value = ""] = part.split("="); params[decodeURIComponent(name)] = decodeURIComponent(value.replace(/\+/g, " ")); });
   const query = { get: name => params[name] || "" };
+  if (route === "/categories" || route.startsWith("/categories/")) {
+    const result = categories.handle(data, route, method, payload);
+    if (method !== "GET") write(ownerId, data);
+    return result;
+  }
   if (route === "/me") {
     if (method === "GET") return data.profile;
     if (method === "PATCH") {
@@ -237,7 +249,7 @@ function handle(ownerId, path, method = "GET", payload) {
   }
   if (route === "/contacts" && method === "GET") return data.contacts.filter(item => matchContact(item, query));
   if (route === "/contacts" && method === "POST") {
-    const fields = contactInput(payload);
+    const fields = contactInput(payload, data);
     const contact = { ...fields, id: data.nextContactId++, ownerId };
     data.contacts.push(contact);
     write(ownerId, data);
@@ -245,7 +257,7 @@ function handle(ownerId, path, method = "GET", payload) {
   }
   if (route === "/contacts/batch" && method === "POST") {
     if (!Array.isArray(payload) || !payload.length || payload.length > 100) throw new Error("批量联系人数量无效");
-    const fields = payload.map(contactInput);
+    const fields = payload.map(item => contactInput(item, data));
     const added = fields.map((item, index) => ({ ...item, id: data.nextContactId + index, ownerId }));
     data.contacts.push(...added);
     data.nextContactId += added.length;
@@ -272,7 +284,7 @@ function handle(ownerId, path, method = "GET", payload) {
     const contact = findContact(data, contactRoute[1]);
     if (method === "GET") return contact;
     if (method === "PATCH") {
-      Object.assign(contact, contactInput(payload));
+      Object.assign(contact, contactInput(payload, data));
       write(ownerId, data);
       return contact;
     }
@@ -283,6 +295,7 @@ function handle(ownerId, path, method = "GET", payload) {
       return null;
     }
   }
+  if (route === "/relationships" && method === "GET") return data.relationships;
   if (route === "/relationships" && method === "POST") {
     const source = findContact(data, payload.sourceId);
     const target = findContact(data, payload.targetId);

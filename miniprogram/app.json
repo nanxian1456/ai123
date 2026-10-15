@@ -9,6 +9,7 @@
     "pages/contacts-batch/index",
     "pages/contact-detail/index",
     "pages/map/index",
+    "pages/graph/index",
     "pages/relationship-form/index",
     "pages/settings/index",
     "pages/settings-profile/index",
@@ -41,6 +42,10 @@
       {
         "pagePath": "pages/map/index",
         "text": "地图"
+      },
+      {
+        "pagePath": "pages/graph/index",
+        "text": "图谱"
       },
       {
         "pagePath": "pages/me/index",

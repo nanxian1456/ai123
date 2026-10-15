@@ -1,5 +1,6 @@
 import { request, showError } from "../../utils/api";
 import duplicates = require("../../utils/duplicates");
+import type { LocalCategory } from "../../utils/local-data";
 import { splitTags, suggestedTagOptions } from "../../utils/contact-tags";
 
 const AI_FIELDS = [
@@ -62,11 +63,34 @@ Page({
     suggestedTags: suggestedTagOptions(""),
     availableTags: [] as Array<{ name: string; count: number }>,
     selectedTags: [] as string[],
+    categoryIds: null as string[] | null,
+    categoryNames: [] as Array<{ id: string; name: string }>,
   },
   onLoad(query: Record<string, string>) {
     if (query.id) this.setData({ id: query.id });
+    if (!query.id && query.categoryId) {
+      this.setData({ categoryIds: [query.categoryId] });
+      this.resolveCategories([query.categoryId]);
+    }
     this.loadTags();
     if (query.id) this.loadContact(query.id);
+  },
+  async resolveCategories(ids: string[]) {
+    if (!ids.length) return this.setData({ categoryNames: [] });
+    this.setData({ categoryNames: ids.map(id => ({ id, name: id })) });
+    try {
+      const result = await request<{ tree: LocalCategory[] }>("/categories");
+      const names = new Map<string, string>();
+      const pending = [...(result.tree || [])];
+      while (pending.length) {
+        const node = pending.pop()!;
+        names.set(node.id, node.name);
+        pending.push(...node.children);
+      }
+      this.setData({ categoryNames: ids.map(id => ({ id, name: names.get(id) || id })) });
+    } catch (error) {
+      showError(error);
+    }
   },
   retryLoad() {
     if (this.data.id && !this.data.loading) this.loadContact(this.data.id);
@@ -103,7 +127,9 @@ Page({
         },
         suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags),
         selectedTags: splitTags(tagsText),
+        categoryIds: Array.isArray(contact.categoryIds) ? contact.categoryIds : null,
       });
+      this.resolveCategories(this.data.categoryIds || []);
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     } catch (error) {
       this.setData({ loadFailed: true });
@@ -296,7 +322,12 @@ Page({
         title: "标签最多10个，每个不超过20字",
         icon: "none",
       });
-    const payload = { ...form, name: form.name.trim(), tags };
+    const payload = {
+      ...form,
+      name: form.name.trim(),
+      tags,
+      ...(this.data.categoryIds ? { categoryIds: [...this.data.categoryIds] } : {}),
+    };
     delete (payload as { tagsText?: string }).tagsText;
     this.setData({ saving: true });
     try {
