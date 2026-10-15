@@ -1,8 +1,9 @@
 <view class="page">
   <view class="privacy-intro">新用户默认所有资料均不公开。公开昵称后，持有你的导入码的人可以获取你选择公开的文字资料。头像仅保存在本机。</view>
+  <view wx:if="{{profile.publicationStatus === 'pending' || profile.publicationStatus === 'error'}}" role="status">公开状态尚未确认，请联网重试同步。<button bindtap="retryPublication" loading="{{savingVisibility}}" disabled="{{savingVisibility}}">重试同步</button></view>
   <view class="card visibility-card" wx:if="{{profile}}">
     <view class="visibility-row" wx:for="{{visibilityItems}}" wx:key="field">
-      <view><text>{{item.label}}</text><text>{{item.enabled ? '已公开' : '未公开'}}</text></view>
+      <view><text>{{item.label}}</text><text>{{savingVisibility || profile.publicationStatus === 'pending' || profile.publicationStatus === 'error' ? '同步待确认' : (item.enabled ? '已公开' : '未公开')}}</text></view>
       <switch checked="{{item.enabled}}" color="#1684c3" data-field="{{item.field}}" bindchange="changeVisibility" disabled="{{savingVisibility}}"/>
     </view>
   </view>

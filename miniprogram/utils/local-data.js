@@ -10,72 +10,137 @@ function emptyProfile(ownerId) {
   return { ownerId, nickname: "", organization: "", position: "", city: "", bio: "", avatarType: "male-1", avatarUrl: "", visibility: { ...PRIVATE }, profileCompleted: false, contactCode: "" };
 }
 function key(ownerId) { return PREFIX + ownerId; }
-
-// 微信单个 storage key 最多约 1MB。联系人和关系按大小拆成多段，每段远低于上限；
-// 主 key 只保存资料、标签目录、编号和分段信息。每次写入使用新的“代”编号：
-// 先写新分段，再切换主 key，最后删除旧分段，写到一半失败时旧数据保持完整。
-const CHUNK_BYTES = 512 * 1024;
-const COLLECTIONS = ["contacts", "relationships"];
-function chunkKey(ownerId, generation, name, index) { return `${key(ownerId)}:g${generation}:${name}:${index}`; }
+const SHARDED = "ai-network-sharded-v1";
+const SHARD_BYTES = 200 * 1024;
+const ACCOUNT_BYTES = 8 * 1024 * 1024;
+const MAX_SHARDS = Math.ceil(ACCOUNT_BYTES / SHARD_BYTES);
+const LEGACY_COLLECTIONS = ["contacts", "relationships"];
+const LEGACY_ACCOUNT_BYTES = 10 * 1024 * 1024;
+let generationSequence = 0;
+function storageError() { return new Error("本机存储不足，保存失败，请先导出备份并释放手机存储空间"); }
+function readError() { return new Error("本机数据无法读取，请保留当前数据并使用备份恢复，勿重新导入旧数据"); }
+function shardKey(ownerId, generation, index) { return `ai-network-local-shards-v1:${encodeURIComponent(ownerId)}:shard:${generation}:${index}`; }
+function validManifest(value, ownerId) {
+  return value && value.storage === SHARDED && value.version === 1 && value.ownerId === ownerId &&
+    typeof value.generation === "string" && /^[a-z0-9]{1,12}-[a-z0-9]{1,12}-[a-z0-9]{1,20}$/.test(value.generation) &&
+    Number.isSafeInteger(value.count) && value.count > 0 && value.count <= MAX_SHARDS &&
+    Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= ACCOUNT_BYTES;
+}
+function validLegacyChunks(value, ownerId) {
+  const layout = value && value.layout;
+  return value && value.version === 1 && value.storage == null && value.profile && value.profile.ownerId === ownerId &&
+    layout && Number.isSafeInteger(layout.generation) && layout.generation > 0 &&
+    LEGACY_COLLECTIONS.every(name => Number.isSafeInteger(layout[name]) && layout[name] >= 0 && layout[name] <= 64);
+}
+function legacyChunkKey(ownerId, layout, name, index) { return `${key(ownerId)}:g${layout.generation}:${name}:${index}`; }
+function readLegacyChunks(ownerId, stored) {
+  if (!validLegacyChunks(stored, ownerId)) throw readError();
+  const { layout, ...value } = stored;
+  let total = utf8Bytes(JSON.stringify(value));
+  for (const name of LEGACY_COLLECTIONS) {
+    value[name] = [];
+    for (let index = 0; index < layout[name]; index++) {
+      const part = wx.getStorageSync(legacyChunkKey(ownerId, layout, name, index));
+      if (!Array.isArray(part) || !part.length) throw readError();
+      const bytes = utf8Bytes(JSON.stringify(part));
+      total += bytes;
+      if (bytes > 1024 * 1024 || total > LEGACY_ACCOUNT_BYTES) throw readError();
+      for (const item of part) value[name].push(item);
+    }
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+function codePointSize(value, index) {
+  const first = value.charCodeAt(index);
+  if (first < 0x80) return [1, 1];
+  if (first < 0x800) return [2, 1];
+  if (first >= 0xd800 && first <= 0xdbff && value.charCodeAt(index + 1) >= 0xdc00 && value.charCodeAt(index + 1) <= 0xdfff) return [4, 2];
+  return [3, 1];
+}
 function utf8Bytes(value) {
-  let bytes = 0;
-  for (const char of JSON.stringify(value)) {
-    const code = char.codePointAt(0);
-    bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
-  }
-  return bytes;
+  let total = 0;
+  for (let index = 0; index < value.length;) { const [bytes, width] = codePointSize(value, index); total += bytes; index += width; }
+  return total;
 }
-function splitChunks(items) {
-  const chunks = [];
-  let current = [];
-  let size = 2;
-  for (const item of items) {
-    const itemSize = utf8Bytes(item) + 1;
-    if (current.length && size + itemSize > CHUNK_BYTES) { chunks.push(current); current = []; size = 2; }
-    current.push(item);
-    size += itemSize;
+function splitStorage(serialized) {
+  const shards = [];
+  let start = 0;
+  let currentBytes = 0;
+  let total = 0;
+  for (let index = 0; index < serialized.length;) {
+    const [bytes, width] = codePointSize(serialized, index);
+    total += bytes;
+    if (total > ACCOUNT_BYTES) throw new Error("本机存储已接近容量上限，请先导出备份并减少联系人或备注");
+    if (currentBytes + bytes > SHARD_BYTES) { shards.push(serialized.slice(start, index)); start = index; currentBytes = 0; }
+    currentBytes += bytes;
+    index += width;
   }
-  if (current.length) chunks.push(current);
-  return chunks;
+  if (start < serialized.length) shards.push(serialized.slice(start));
+  return { shards, bytes: total };
 }
-function removeQuietly(storageKey) { try { wx.removeStorageSync(storageKey); } catch (_) { /* 清理失败不影响已保存的数据 */ } }
-function removeGeneration(ownerId, layout) {
-  COLLECTIONS.forEach(name => { for (let index = 0; index < (layout[name] || 0); index++) removeQuietly(chunkKey(ownerId, layout.generation, name, index)); });
+function cleanupKeys(keys) {
+  if (typeof wx.removeStorageSync !== "function") return;
+  for (const storageKey of keys) { try { wx.removeStorageSync(storageKey); } catch (_) { /* A committed generation remains readable if cleanup fails. */ } }
+}
+function cleanupGeneration(ownerId, previous) {
+  if (validManifest(previous, ownerId)) {
+    cleanupKeys(Array.from({ length: previous.count }, (_, index) => shardKey(ownerId, previous.generation, index)));
+  } else if (validLegacyChunks(previous, ownerId)) {
+    for (const name of LEGACY_COLLECTIONS) {
+      for (let index = 0; index < previous.layout[name]; index++) {
+        const storageKey = legacyChunkKey(ownerId, previous.layout, name, index);
+        // An old unescaped key can alias another account's index; only array chunks belong here.
+        try { if (Array.isArray(wx.getStorageSync(storageKey))) cleanupKeys([storageKey]); } catch (_) { /* Cleanup cannot invalidate an already committed write. */ }
+      }
+    }
+  }
 }
 function read(ownerId) {
   const stored = wx.getStorageSync(key(ownerId));
-  if (!stored || stored.version !== 1) return null;
-  if (!stored.layout) return stored; // 旧版本：全部数据都在主 key 里，下次写入时自动拆分
-  const { layout, ...data } = stored;
-  COLLECTIONS.forEach(name => {
-    data[name] = [];
-    for (let index = 0; index < layout[name]; index++) {
-      const part = wx.getStorageSync(chunkKey(ownerId, layout.generation, name, index));
-      if (!Array.isArray(part)) throw new Error("本机数据不完整，请从备份恢复");
-      data[name].push(...part);
+  if (stored && stored.storage === SHARDED) {
+    if (!validManifest(stored, ownerId)) throw readError();
+    const shards = [];
+    let bytes = 0;
+    for (let index = 0; index < stored.count; index++) {
+      const shard = wx.getStorageSync(shardKey(ownerId, stored.generation, index));
+      if (typeof shard !== "string" || !shard) throw readError();
+      const shardBytes = utf8Bytes(shard);
+      if (shardBytes > SHARD_BYTES) throw readError();
+      bytes += shardBytes;
+      shards.push(shard);
     }
-  });
-  return data;
+    if (bytes !== stored.bytes) throw readError();
+    let value;
+    try { value = JSON.parse(shards.join("")); } catch (_) { throw readError(); }
+    if (!value || value.version !== 1 || !value.profile || value.profile.ownerId !== ownerId) throw readError();
+    return value;
+  }
+  if (!stored) return null;
+  if (stored.layout !== undefined) return readLegacyChunks(ownerId, stored);
+  if (stored.version !== 1 || !stored.profile || stored.profile.ownerId !== ownerId) throw readError();
+  return JSON.parse(JSON.stringify(stored));
 }
 function write(ownerId, value) {
-  const previous = wx.getStorageSync(key(ownerId));
-  const oldLayout = previous && previous.version === 1 && previous.layout ? previous.layout : null;
-  const generation = oldLayout ? oldLayout.generation + 1 : 1;
-  const { contacts = [], relationships = [], ...rest } = value;
-  const chunks = { contacts: splitChunks(contacts), relationships: splitChunks(relationships) };
-  const written = [];
-  try {
-    COLLECTIONS.forEach(name => chunks[name].forEach((part, index) => {
-      const storageKey = chunkKey(ownerId, generation, name, index);
-      written.push(storageKey);
-      wx.setStorageSync(storageKey, part);
-    }));
-    wx.setStorageSync(key(ownerId), { ...rest, version: 1, layout: { generation, contacts: chunks.contacts.length, relationships: chunks.relationships.length } });
-  } catch (error) {
-    written.forEach(removeQuietly);
-    throw new Error("手机存储空间不足，本次修改未保存。请清理微信存储或删除部分联系人后重试");
+  if (value == null) {
+    const previous = wx.getStorageSync(key(ownerId));
+    try { wx.setStorageSync(key(ownerId), value); } catch (_) { throw storageError(); }
+    cleanupGeneration(ownerId, previous);
+    return value;
   }
-  if (oldLayout) removeGeneration(ownerId, oldLayout);
+  const serialized = JSON.stringify(value);
+  const { shards, bytes } = splitStorage(serialized);
+  const previous = wx.getStorageSync(key(ownerId));
+  const generation = `${Date.now().toString(36)}-${(++generationSequence).toString(36)}-${Math.random().toString(36).slice(2) || "0"}`;
+  const stagedKeys = shards.map((_, index) => shardKey(ownerId, generation, index));
+  // Never overwrite a generation if an unexpected identifier collision occurs.
+  if (stagedKeys.some(storageKey => wx.getStorageSync(storageKey))) throw storageError();
+  const attemptedKeys = [];
+  try {
+    shards.forEach((shard, index) => { attemptedKeys.push(stagedKeys[index]); wx.setStorageSync(stagedKeys[index], shard); });
+    // Only this final storage write makes the fully staged generation visible.
+    wx.setStorageSync(key(ownerId), { storage: SHARDED, version: 1, ownerId, generation, count: shards.length, bytes });
+  } catch (_) { cleanupKeys(attemptedKeys); throw storageError(); }
+  cleanupGeneration(ownerId, previous);
   return value;
 }
 function storageUsage() {
@@ -222,7 +287,10 @@ function handle(ownerId, path, method = "GET", payload) {
     const source = findContact(data, payload.sourceId);
     const target = findContact(data, payload.targetId);
     if (source.id === target.id) throw new Error("关系对象无效");
-    const relationship = { id: data.nextRelationshipId++, ownerId, sourceId: source.id, targetId: target.id, type: text(payload.type, "关系类型", 30, true), note: text(payload.note, "关系备注", 200) };
+    const type = text(payload.type, "关系类型", 30, true);
+    const note = text(payload.note, "关系备注", 200);
+    if (data.relationships.some(item => item.sourceId === source.id && item.targetId === target.id && item.type === type && (item.note || "") === note)) throw new Error("相同关系已存在");
+    const relationship = { id: data.nextRelationshipId++, ownerId, sourceId: source.id, targetId: target.id, type, note };
     data.relationships.push(relationship);
     write(ownerId, data);
     return relationship;

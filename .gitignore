@@ -1,5 +1,8 @@
 # WorkBuddy workspace memory
 .workbuddy/
+node_modules/
+miniprogram/utils/api-config.local.js
+miniprogram/workers/crypto/vendor/
 
 # Java build output
 backend/target/

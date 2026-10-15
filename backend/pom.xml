@@ -28,10 +28,18 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
-		<!-- mvnw spring-boot:run defaults to dev; override with -Dspring-boot.run.profiles=prod -->
+		<!-- The Maven development launcher defaults to dev; packaged applications still require an explicit profile. -->
 		<spring-boot.run.profiles>dev</spring-boot.run.profiles>
 	</properties>
 	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-h2console</artifactId>
@@ -103,12 +111,24 @@
 			<resource>
 				<directory>src/main/resources</directory>
 				<excludes>
-					<!-- Local secrets must never be packaged; the file now lives in backend/config/. -->
-					<exclude>application-local.properties</exclude>
+					<exclude>**/application-local.properties</exclude>
+					<exclude>**/.env</exclude>
+					<exclude>**/*.env.local</exclude>
 				</excludes>
 			</resource>
 		</resources>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>**/application-local.properties</exclude>
+						<exclude>**/.env</exclude>
+						<exclude>**/*.env.local</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -116,7 +136,8 @@
 				<executions>
 					<execution>
 						<configuration>
-							<destFile>${java.io.tmpdir}/aimap-jacoco.exec</destFile>
+							<destFile>${project.build.directory}/jacoco.exec</destFile>
+							<append>false</append>
 						</configuration>
 						<goals><goal>prepare-agent</goal></goals>
 					</execution>
@@ -124,7 +145,7 @@
 						<id>report</id>
 						<phase>test</phase>
 						<configuration>
-							<dataFile>${java.io.tmpdir}/aimap-jacoco.exec</dataFile>
+							<dataFile>${project.build.directory}/jacoco.exec</dataFile>
 						</configuration>
 						<goals><goal>report</goal></goals>
 					</execution>
@@ -132,7 +153,7 @@
 						<id>coverage-check</id>
 						<phase>test</phase>
 						<configuration>
-							<dataFile>${java.io.tmpdir}/aimap-jacoco.exec</dataFile>
+							<dataFile>${project.build.directory}/jacoco.exec</dataFile>
 							<rules>
 								<rule>
 									<element>BUNDLE</element>
@@ -140,7 +161,7 @@
 										<limit>
 											<counter>INSTRUCTION</counter>
 											<value>COVEREDRATIO</value>
-											<minimum>0.35</minimum>
+											<minimum>0.50</minimum>
 										</limit>
 									</limits>
 								</rule>
