@@ -41,12 +41,16 @@ test("nested classification, rename and deletion preserve contacts and unrelated
   const owner = seed();
   const parent = local.handle(owner, "/categories", "POST", { name: "大学" });
   const child = local.handle(owner, "/categories", "POST", { name: "同学", parentId: parent.id });
+  const grandchild = local.handle(owner, "/categories", "POST", { name: "研究生", parentId: child.id });
   const other = local.handle(owner, "/categories", "POST", { name: "朋友" });
-  local.handle(owner, "/contacts/1", "PATCH", { name: "原有联系人", categoryIds: [child.id, other.id] });
+  local.handle(owner, "/contacts/1", "PATCH", { name: "原有联系人", categoryIds: [grandchild.id, other.id] });
   local.handle(owner, `/categories/${parent.id}`, "PATCH", { name: "母校" });
   assert.equal(local.handle(owner, "/categories").tree[0].name, "母校");
   local.handle(owner, `/categories/${parent.id}`, "DELETE");
   assert.deepEqual(local.handle(owner, "/contacts/1").categoryIds, [other.id]);
+  assert.deepEqual(local.handle(owner, "/categories").tree.map(node => node.id), [other.id]);
+  const replacement = local.handle(owner, "/categories", "POST", { name: "新分类" });
+  assert.ok(![parent.id, child.id, grandchild.id].includes(replacement.id), "deleted category IDs must not be reused");
   assert.equal(local.handle(owner, "/contacts").length, 1);
 });
 
@@ -98,4 +102,43 @@ test("malformed classification backups fail before replacing local data", async 
   const invalid = { ...before, categoryTree: [{ id: "cat1", name: "大学", children: [{ id: "cat1", name: "重复编号", children: [] }] }], nextCategoryId: 2 };
   await assert.rejects(backup.restore(owner, { data: invalid, avatar: "" }), /分类/);
   assert.deepEqual(local.read(owner), before);
+});
+
+// Adapted from the archive's category tests. Seed through migration so these
+// cases do not depend on the separate demo or reset modules.
+test("recommendations follow nested category creation, rename and deletion", () => {
+  const owner = seed();
+  const defaults = local.handle(owner, "/categories").recommended;
+  assert.equal(defaults.length, 10);
+  const parent = local.handle(owner, "/categories", "POST", { name: "大学" });
+  local.handle(owner, "/categories", "POST", { name: "同学", parentId: parent.id });
+  let result = local.handle(owner, "/categories");
+  assert.ok(!result.recommended.includes("大学"));
+  assert.ok(!result.recommended.includes("同学"));
+  local.handle(owner, `/categories/${parent.id}`, "PATCH", { name: "母校" });
+  result = local.handle(owner, "/categories");
+  assert.ok(result.recommended.includes("大学"));
+  assert.ok(!result.recommended.includes("同学"));
+  local.handle(owner, `/categories/${parent.id}`, "DELETE");
+  result = local.handle(owner, "/categories");
+  assert.deepEqual(result.tree, []);
+  assert.deepEqual(result.recommended, defaults);
+});
+
+test("hiding or restoring a recommendation never removes an existing category or its contacts", () => {
+  const owner = seed();
+  const category = local.handle(owner, "/categories", "POST", { name: "朋友" });
+  local.handle(owner, "/contacts/1", "PATCH", { name: "原有联系人", categoryIds: [category.id] });
+  local.handle(owner, "/categories/dismiss", "POST", { name: "朋友" });
+  local.handle(owner, "/categories/dismiss", "POST", { name: "朋友" });
+  let result = local.handle(owner, "/categories");
+  assert.deepEqual(result.dismissed, ["朋友"]);
+  assert.equal(result.tree[0].id, category.id);
+  assert.deepEqual(local.handle(owner, "/contacts/1").categoryIds, [category.id]);
+  local.handle(owner, "/categories/restore", "POST", { name: "朋友" });
+  result = local.handle(owner, "/categories");
+  assert.deepEqual(result.dismissed, []);
+  assert.ok(!result.recommended.includes("朋友"), "an existing category is not offered again");
+  assert.equal(result.tree[0].id, category.id);
+  assert.deepEqual(local.handle(owner, "/contacts/1").categoryIds, [category.id]);
 });
