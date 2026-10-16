@@ -112,7 +112,7 @@ $env:APP_PUBLIC_BASE_URL = "https://你的后端域名"
 
 小程序模拟器默认访问 `127.0.0.1:8080/api`。复制 `miniprogram/utils/api-config.local.example.js` 为同目录的 `api-config.local.js`，填写 `deviceDevelop`（电脑局域网地址）、`trial` 和 `release`（实际 HTTPS 后端地址）。这个文件不提交 Git，但需要随小程序构建一起上传。无需改动 TS 和生成 JS；真机未配置地址时会明确报错。真机须与电脑同网，并在微信公众平台配置体验版和正式版的请求合法域名。局域网 HTTP 只用于开发。
 
-进入页和登录页的背景视频由后端提供，地址与 API 同一主机：登录页使用 `backend/src/main/resources/static/videos/background.mp4`；进入页优先使用同目录的 `entry.mp4`，不存在时改用 `background.mp4`。视频加载失败时页面显示纯色渐变背景，不影响登录。不要在页面里写死 `127.0.0.1` 或第三方临时链接。
+进入页和登录页的背景视频相互独立：进入页保持原有的视频和封面；登录页的视频由后端提供（`backend/src/main/resources/static/videos/background.mp4`），地址与 API 同一主机，加载失败时显示渐变背景，不影响登录。登录页不要写死 `127.0.0.1`。
 
 ## 主要接口
 

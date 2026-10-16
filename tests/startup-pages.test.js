@@ -68,29 +68,23 @@ test("the login background video comes from the configured backend and hides on 
   assert.equal(page.data.bgVideo, "");
 });
 
-test("the entry video falls back to the shared background, then to the plain gradient", () => {
-  const { page } = loadPage("entry");
+test("no video is requested when no backend address is configured", () => {
+  const { page } = loadPage("auth", { mediaBase: "" });
   page.onLoad();
-  assert.equal(page.data.bgVideo, "http://192.168.1.2:8080/videos/entry.mp4");
-  page.onVideoError();
-  assert.equal(page.data.bgVideo, "http://192.168.1.2:8080/videos/background.mp4");
-  page.onVideoError();
   assert.equal(page.data.bgVideo, "");
 });
 
-test("no video is requested when no backend address is configured", () => {
-  for (const name of ["auth", "entry"]) {
-    const { page } = loadPage(name, { mediaBase: "" });
-    page.onLoad();
-    assert.equal(page.data.bgVideo, "");
-  }
+test("the login page no longer hard-codes a localhost video", () => {
+  const markup = fs.readFileSync(path.join(__dirname, "../miniprogram/pages/auth/index.wxml"), "utf8");
+  assert.doesNotMatch(markup, /127\.0\.0\.1|localhost/);
 });
 
-test("start pages no longer reference localhost or third-party media hosts", () => {
-  for (const name of ["auth", "entry"]) {
-    const markup = fs.readFileSync(path.join(__dirname, `../miniprogram/pages/${name}/index.wxml`), "utf8");
-    assert.doesNotMatch(markup, /127\.0\.0\.1|localhost|cloudfront\.net/);
-  }
+test("the entry page keeps its own original video, independent of the login page", () => {
+  const markup = fs.readFileSync(path.join(__dirname, "../miniprogram/pages/entry/index.wxml"), "utf8");
+  const script = fs.readFileSync(path.join(__dirname, "../miniprogram/pages/entry/index.js"), "utf8");
+  assert.match(markup, /<video[^>]*class="earth-video"[^>]*src="https:\/\/[^"]+\.mp4"/);
+  assert.doesNotMatch(markup, /background\.mp4/);
+  assert.doesNotMatch(script, /api-config|background-video/);
 });
 
 test("media URLs reuse the API host without the /api suffix", () => {
