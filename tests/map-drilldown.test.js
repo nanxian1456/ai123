@@ -37,7 +37,7 @@ test("map drills from country to city contacts and back", async () => {
         showError: error => { throw error; }
       };
       if (id.includes("world.js")) return [];
-      if (id.includes("jiangsu.json")) return JSON.parse(fs.readFileSync(path.join(__dirname, "../assets/data/jiangsu.json"), "utf8"));
+      if (id.includes("jiangsu.json")) return JSON.parse(fs.readFileSync(path.join(__dirname, "../miniprogram/assets/data/jiangsu.json"), "utf8"));
       return { createScopedThreejs() {} };
     },
     Page(definition) { page = definition; },
@@ -48,7 +48,7 @@ test("map drills from country to city contacts and back", async () => {
     },
     console
   };
-  const source = fs.readFileSync(path.join(__dirname, "../pages/map/index.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "../miniprogram/pages/map/index.js"), "utf8");
   vm.runInNewContext(source, sandbox);
   page.setData = update => Object.assign(page.data, update);
   const load = page.load;
