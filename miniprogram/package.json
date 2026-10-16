@@ -1,0 +1,8 @@
+{
+  "name": "ai-network-map-mini",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "threejs-miniprogram": "0.0.8"
+  }
+}

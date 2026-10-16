@@ -3,6 +3,8 @@
 
 # Java build output
 backend/target/
+miniprogram/node_modules/
+miniprogram/miniprogram_npm/
 
 # Local WeChat DevTools state
 project.private.config.json

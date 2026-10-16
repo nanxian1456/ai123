@@ -1,4 +1,4 @@
-const BASE_URL = "http://127.0.0.1:8080/api";
+const { BASE_URL } = require("./config");
 const TOKEN_KEY = "ai-network-auth-token";
 let loginPromise = null;
 
@@ -37,7 +37,7 @@ function validateSession() {
   const token = getStoredToken();
   if (!token) return Promise.reject(new Error("NO_SESSION"));
   return new Promise((resolve, reject) => {
-    wx.request({ url: `${BASE_URL}/me`, method: "GET", header: { Authorization: `Bearer ${token}` }, success(response) {
+    wx.request({ url: `${BASE_URL}/me`, method: "GET", timeout: 8000, header: { Authorization: `Bearer ${token}` }, success(response) {
       if (response.statusCode >= 200 && response.statusCode < 300) resolve(response.data);
       else { if (response.statusCode === 401) clearSession(); reject(new Error(response.statusCode === 401 ? "SESSION_INVALID" : "SESSION_CHECK_FAILED")); }
     }, fail: () => reject(new Error("SESSION_CHECK_FAILED")) });

@@ -1,16 +1,31 @@
 import { request, showError } from "../../utils/api";
 
 Page({
-  data: { id: "", form: { name: "", organization: "", position: "", city: "", province: "", phone: "", email: "", note: "", tagsText: "" }, aiText: "", extracting: false, importCode: "", importing: false },
+  data: { id: "", form: { name: "", organization: "", position: "", country: "", province: "", city: "", address: "", latitude: null as number | null, longitude: null as number | null, phone: "", email: "", note: "", tagsText: "" }, aiText: "", extracting: false, importCode: "", importing: false },
   onLoad(query: Record<string, string>) { if (query.id) this.loadContact(query.id); },
   async loadContact(id: string) {
     try {
       const contact = await request<any>(`/contacts/${id}`);
-      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", city: contact.city || "", province: contact.province || "", phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText: (contact.tags || []).join("，") } });
+      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", country: contact.country || "", province: contact.province || "", city: contact.city || "", address: contact.address || "", latitude: contact.latitude ?? null, longitude: contact.longitude ?? null, phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText: (contact.tags || []).join("，") } });
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     } catch (error) { showError(error); }
   },
-  input(event: any) { const field = event.currentTarget.dataset.field; this.setData({ [`form.${field}`]: event.detail.value }); },
+  input(event: any) {
+    const field = event.currentTarget.dataset.field;
+    this.setData({ [`form.${field}`]: event.detail.value });
+    if (field === "address") this.setData({ "form.latitude": null, "form.longitude": null });
+  },
+  chooseLocation() {
+    wx.chooseLocation({
+      success: (location: { name?: string; address?: string; latitude: number; longitude: number }) => {
+        const address = [location.name, location.address].filter(Boolean).join("，");
+        this.setData({ "form.address": address, "form.latitude": location.latitude, "form.longitude": location.longitude });
+      },
+      fail: (error: { errMsg?: string }) => {
+        if (error.errMsg && !error.errMsg.includes("cancel")) wx.showToast({ title: "无法打开地图选点", icon: "none" });
+      }
+    });
+  },
   aiInput(event: any) { this.setData({ aiText: event.detail.value }); },
   importCodeInput(event: any) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
   async importUser() {

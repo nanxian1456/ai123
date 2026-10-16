@@ -1,6 +1,6 @@
 <view class="auth-page">
   <view class="auth-bg">
-    <video class="bg-video" src="http://127.0.0.1:8080/videos/background.mp4" autoplay="{{true}}" loop="{{true}}" muted="{{true}}" show-center-play-btn="{{false}}" show-play-btn="{{false}}" controls="{{false}}" object-fit="cover"></video>
+    <video class="bg-video" src="{{videoUrl}}" autoplay="{{true}}" loop="{{true}}" muted="{{true}}" show-center-play-btn="{{false}}" show-play-btn="{{false}}" controls="{{false}}" object-fit="cover" play-btn-position="center" show-mute-btn="{{false}}"></video>
     <view class="bg-overlay"></view>
     <view class="glow glow-1"></view>
     <view class="glow glow-2"></view>

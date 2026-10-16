@@ -38,5 +38,6 @@
     ]
   },
   "style": "v2",
+  "requiredPrivateInfos": ["chooseLocation"],
   "sitemapLocation": "sitemap.json"
 }

@@ -7,7 +7,10 @@
     <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名"/></view>
     <view class="field"><text>单位</text><input data-field="organization" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构"/></view>
     <view class="field"><text>职务</text><input data-field="position" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等"/></view>
+    <view class="field"><text>国家</text><input data-field="country" value="{{form.country}}" bindinput="input" placeholder="工作国家或地区"/></view>
+    <view class="field"><text>省份 / 州</text><input data-field="province" value="{{form.province}}" bindinput="input" placeholder="工作省份或州"/></view>
     <view class="field"><text>城市</text><input data-field="city" value="{{form.city}}" bindinput="input" placeholder="工作城市"/></view>
+    <view class="field"><text>详细位置</text><view class="location-field"><input data-field="address" value="{{form.address}}" bindinput="input" placeholder="街道、园区或场所"/><button class="location-pick" bindtap="chooseLocation">地图选点</button></view></view>
     <view class="field"><text>电话</text><input data-field="phone" value="{{form.phone}}" bindinput="input" placeholder="选填" type="number"/></view>
     <view class="field"><text>邮箱</text><input data-field="email" value="{{form.email}}" bindinput="input" placeholder="选填"/></view>
     <view class="field"><text>标签</text><input data-field="tagsText" value="{{form.tagsText}}" bindinput="input" placeholder="多个标签用逗号分隔"/></view>

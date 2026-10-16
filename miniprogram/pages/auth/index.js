@@ -1,7 +1,8 @@
 const { ensureSession, request, hasProfileData, showError } = require("../../utils/api");
+const { VIDEO_URL } = require("../../utils/config");
 
 Page({
-  data: { loggingIn: false },
+  data: { loggingIn: false, videoUrl: VIDEO_URL },
   login() {
     if (this.data.loggingIn) return;
     this.setData({ loggingIn: true });

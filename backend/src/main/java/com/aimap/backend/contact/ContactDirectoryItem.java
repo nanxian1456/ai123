@@ -8,7 +8,11 @@ public record ContactDirectoryItem(
         String organization,
         String position,
         String city,
+        String address,
+        Double latitude,
+        Double longitude,
         String province,
+        String country,
         String phone,
         String email,
         String note,
@@ -16,6 +20,6 @@ public record ContactDirectoryItem(
         String initial
 ) {
     static ContactDirectoryItem from(Contact contact, String initial) {
-        return new ContactDirectoryItem(contact.id(), contact.name(), contact.organization(), contact.position(), contact.city(), contact.province(), contact.phone(), contact.email(), contact.note(), contact.tags(), initial);
+        return new ContactDirectoryItem(contact.id(), contact.name(), contact.organization(), contact.position(), contact.city(), contact.address(), contact.latitude(), contact.longitude(), contact.province(), contact.country(), contact.phone(), contact.email(), contact.note(), contact.tags(), initial);
     }
 }
