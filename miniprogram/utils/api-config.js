@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getApiBaseUrl = getApiBaseUrl;
+exports.getMediaUrl = getMediaUrl;
 let localConfig = {};
 try {
     localConfig = require("./api-config.local") || {};
@@ -34,4 +35,17 @@ function getApiBaseUrl() {
     if (environment !== "develop" && !url.startsWith("https://"))
         throw new Error("体验版和正式版必须使用 HTTPS 后端地址");
     return url;
+}
+/**
+ * Static media (page background videos) served by the same backend as the API, so the
+ * simulator, a LAN device and release builds all resolve to a reachable host.
+ * Returns "" when no backend is configured; pages then keep their plain background.
+ */
+function getMediaUrl(path) {
+    try {
+        return getApiBaseUrl().replace(/\/api$/i, "") + path;
+    }
+    catch {
+        return "";
+    }
 }

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const api_1 = require("../../utils/api");
+const consent_1 = require("../../utils/consent");
 const VISIBILITY_FIELDS = [
     { field: "nickname", label: "昵称" },
     { field: "organization", label: "单位" },
@@ -29,9 +30,54 @@ Page({
         profile: null,
         visibilityItems: [],
         savingVisibility: false,
+        aiConsent: false,
     },
     onShow() {
+        this.setData({ aiConsent: (0, consent_1.hasAiConsent)() });
         this.load();
+    },
+    openTerms() {
+        wx.navigateTo({ url: "/pages/legal/index?doc=terms" });
+    },
+    openPolicy() {
+        wx.navigateTo({ url: "/pages/legal/index?doc=privacy" });
+    },
+    openWechatGuide() {
+        if (typeof wx.openPrivacyContract === "function")
+            wx.openPrivacyContract({});
+        else
+            wx.showToast({ title: "请更新微信后查看", icon: "none" });
+    },
+    withdrawAi() {
+        if (!this.data.aiConsent)
+            return;
+        wx.showModal({
+            title: "撤回 AI 智能整理授权",
+            content: "撤回后不会再向 DeepSeek 发送文字，下次使用智能整理时会重新询问。已识别并保存的联系人不受影响。",
+            confirmText: "撤回",
+            success: (result) => {
+                if (!result.confirm)
+                    return;
+                (0, consent_1.withdrawAiConsent)();
+                this.setData({ aiConsent: false });
+                wx.showToast({ title: "已撤回", icon: "success" });
+            },
+        });
+    },
+    withdrawAll() {
+        wx.showModal({
+            title: "撤回全部同意",
+            content: "撤回后将退出登录，需重新同意《用户协议》和《隐私政策》才能继续使用。本机的联系人和资料不会被删除；如需删除服务器上的公开资料，请先关闭公开昵称。",
+            confirmText: "撤回退出",
+            confirmColor: "#d92d20",
+            success: (result) => {
+                if (!result.confirm)
+                    return;
+                (0, consent_1.withdrawConsent)();
+                (0, api_1.clearSession)();
+                wx.reLaunch({ url: "/pages/entry/index" });
+            },
+        });
     },
     async load() {
         try {

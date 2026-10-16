@@ -46,3 +46,16 @@ export function getApiBaseUrl(): string {
     throw new Error("体验版和正式版必须使用 HTTPS 后端地址");
   return url;
 }
+
+/**
+ * Static media (page background videos) served by the same backend as the API, so the
+ * simulator, a LAN device and release builds all resolve to a reachable host.
+ * Returns "" when no backend is configured; pages then keep their plain background.
+ */
+export function getMediaUrl(path: string): string {
+  try {
+    return getApiBaseUrl().replace(/\/api$/i, "") + path;
+  } catch {
+    return "";
+  }
+}

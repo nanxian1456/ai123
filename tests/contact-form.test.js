@@ -9,7 +9,7 @@ const pageSource = fs.readFileSync(
   "utf8",
 );
 
-function createPage(request) {
+function createPage(request, { aiConsent = true } = {}) {
   const calls = {
     requests: [],
     toasts: [],
@@ -32,7 +32,9 @@ function createPage(request) {
     module: runtimeModule,
     exports: runtimeModule.exports,
     require: (moduleId) =>
-      moduleId.includes("duplicates")
+      moduleId.includes("consent")
+        ? { confirmAiTransfer: () => Promise.resolve(aiConsent) }
+        : moduleId.includes("duplicates")
         ? require("../miniprogram/utils/duplicates")
         : moduleId.includes("contact-tags")
           ? require("../miniprogram/utils/contact-tags")
@@ -93,7 +95,7 @@ test("edit identity is set before loading and save is blocked until load succeed
   });
   page.save();
   await flush();
-  assert.equal(calls.requests.length, 2);
+  assert.equal(calls.requests.filter(item => item[0] !== "/categories").length, 2);
   assert.equal(page.data.form.name, "");
   complete({ name: "Loaded name", tags: [] });
   await flush();
@@ -112,7 +114,7 @@ test("a failed edit load cannot save a new or empty contact", async () => {
   page.data.form.name = "manual name";
   page.save();
   await flush();
-  assert.equal(calls.requests.length, 2);
+  assert.equal(calls.requests.filter(item => item[0] !== "/categories").length, 2);
 });
 
 test("imported public profile fills only fields still blank when it completes", async () => {
@@ -183,6 +185,7 @@ test("editing source text discards an in-flight AI result", async () => {
   );
   page.aiInput({ detail: { value: "旧介绍" } });
   page.extract();
+  await flush(); // the AI consent check resolves, then the request is in flight
   page.aiInput({ detail: { value: "新介绍" } });
   complete({ data: { name: "旧姓名" } });
   await flush();
@@ -280,5 +283,53 @@ test("a contact opened from a graph category displays the category name", async 
     ? { tree: [{ id: "cat1", name: "大学", children: [{ id: "cat7", name: "同学", children: [] }] }] } : []));
   page.onLoad({ categoryId: "cat7" });
   await flush();
-  assert.equal(page.data.categoryNames[0].name, "同学");
+  const selected = page.data.categoryOptions.filter(item => item.selected);
+  assert.deepEqual(JSON.parse(JSON.stringify(selected.map(item => item.label))), ["大学 / 同学"]);
+});
+
+const CATEGORY_TREE = { tree: [{ id: "cat1", name: "大学", children: [{ id: "cat7", name: "同学", children: [] }] }, { id: "cat2", name: "朋友", children: [] }] };
+
+test("an existing contact can be added to and removed from categories when editing", async () => {
+  const { page, calls } = createPage(route =>
+    route === "/categories" ? Promise.resolve(CATEGORY_TREE)
+      : route === "/contacts/7" ? Promise.resolve({ id: 7, name: "李四", tags: [], categoryIds: ["cat7"] })
+        : Promise.resolve([]));
+  page.onLoad({ id: "7" });
+  await flush();
+  assert.deepEqual(JSON.parse(JSON.stringify(page.data.categoryOptions.map(item => [item.label, item.selected]))),
+    [["大学", false], ["大学 / 同学", true], ["朋友", false]]);
+  page.toggleCategory({ currentTarget: { dataset: { id: "cat2" } } });
+  page.toggleCategory({ currentTarget: { dataset: { id: "cat7" } } });
+  await page.save();
+  const saved = calls.requests.find(item => item[0] === "/contacts/7" && item[1] === "PATCH");
+  assert.deepEqual([...saved[2].categoryIds], ["cat2"]);
+});
+
+test("a contact created without a branch can still be classified", async () => {
+  const { page, calls } = createPage(route => Promise.resolve(route === "/categories" ? CATEGORY_TREE : []));
+  page.onLoad({});
+  await flush();
+  page.input({ currentTarget: { dataset: { field: "name" } }, detail: { value: "王五" } });
+  page.toggleCategory({ currentTarget: { dataset: { id: "cat1" } } });
+  await page.save();
+  const saved = calls.requests.find(item => item[0] === "/contacts" && item[1] === "POST");
+  assert.deepEqual([...saved[2].categoryIds], ["cat1"]);
+});
+
+test("a contact never classified is saved without a categoryIds field", async () => {
+  const { page, calls } = createPage(route => Promise.resolve(route === "/categories" ? CATEGORY_TREE : []));
+  page.onLoad({});
+  await flush();
+  page.input({ currentTarget: { dataset: { field: "name" } }, detail: { value: "赵六" } });
+  await page.save();
+  const saved = calls.requests.find(item => item[0] === "/contacts" && item[1] === "POST");
+  assert.equal("categoryIds" in saved[2], false);
+});
+
+test("AI extraction sends nothing when the user declines to share text with DeepSeek", async () => {
+  const { page, calls } = createPage(() => Promise.resolve({ data: { name: "张三" } }), { aiConsent: false });
+  page.aiInput({ detail: { value: "张三，南京邮电大学教授" } });
+  await page.extract();
+  assert.equal(calls.requests.some((item) => item[0] === "/ai/extract"), false);
+  assert.equal(page.data.extracting, false);
 });

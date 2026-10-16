@@ -29,8 +29,10 @@ function createPage(name, request, syncPublishedProfile) {
       },
       wx,
       setTimeout() {},
-      require() {
-        return { request, syncPublishedProfile, showError() {} };
+      require(id) {
+        if (id.endsWith("consent"))
+          return { hasAiConsent: () => false, withdrawAiConsent() {}, withdrawConsent() {} };
+        return { request, syncPublishedProfile, clearSession() {}, showError() {} };
       },
     },
   );

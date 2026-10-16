@@ -8,4 +8,15 @@
     </view>
   </view>
   <view class="empty" wx:if="{{!profile}}">正在加载隐私设置</view>
+  <view class="section-title">协议与授权</view>
+  <view class="card consent-card">
+    <view class="consent-row" bindtap="openTerms"><text>用户协议</text><text class="chevron">›</text></view>
+    <view class="consent-row" bindtap="openPolicy"><text>隐私政策</text><text class="chevron">›</text></view>
+    <view class="consent-row" bindtap="openWechatGuide"><text>小程序隐私保护指引</text><text class="chevron">›</text></view>
+    <view class="consent-row">
+      <view><text>AI 智能整理授权</text><text class="consent-sub">{{aiConsent ? '已同意向 DeepSeek 发送粘贴的文字' : '未授权，使用时会单独询问'}}</text></view>
+      <button wx:if="{{aiConsent}}" class="consent-button" size="mini" bindtap="withdrawAi">撤回</button>
+    </view>
+    <view class="consent-row danger" bindtap="withdrawAll"><text>撤回全部同意并退出登录</text><text class="chevron">›</text></view>
+  </view>
 </view>

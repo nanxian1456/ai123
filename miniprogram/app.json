@@ -17,6 +17,7 @@
     "pages/data-backup/index",
     "pages/settings-friends/index",
     "pages/settings-privacy/index",
+    "pages/legal/index",
     "pages/logout/index",
     "pages/me/index"
   ],

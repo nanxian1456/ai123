@@ -84,7 +84,7 @@ function createPage(
       Object.assign(this.data, values);
     },
   };
-  page.data.pending = { contacts: [] };
+  page.pendingBackup = { contacts: [] };
   return { page, calls, token };
 }
 
@@ -147,13 +147,15 @@ test("inspection waits for asynchronous key derivation before showing a preview"
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(page.data.busy, true);
   assert.equal(page.data.preview, null);
-  assert.equal(page.data.pending, null);
+  assert.equal(page.pendingBackup, null);
   page.importPasswordInput({ detail: { value: "changed" } });
   assert.equal(page.data.importPassword, "password for backup");
   finish(incoming);
   await inspecting;
   assert.equal(page.data.busy, false);
-  assert.equal(page.data.pending, incoming);
+  assert.equal(page.pendingBackup, incoming);
+  // The decrypted backup must never be sent through setData (1MB limit).
+  assert.equal(Object.values(page.data).includes(incoming), false);
   assert.equal(page.data.preview.backupContacts, 1);
   assert.equal(calls.errors.length, 0);
 });
@@ -167,7 +169,7 @@ test("uncertain publication result retains restored data for retry", async () =>
   await calls.modals[0].success({ confirm: true });
   assert.equal(calls.writes.length, 0);
   assert.equal(calls.rollbacks.length, 0);
-  assert.equal(page.data.pending, null);
+  assert.equal(page.pendingBackup, null);
 });
 
 test("restore confirmation prevents repeated taps opening multiple destructive dialogs", () => {

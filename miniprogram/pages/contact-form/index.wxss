@@ -25,3 +25,5 @@
 .selected-tag text { font-size:30rpx; }
 
 .ai-disclosure { margin: 18rpx 0; padding: 18rpx; border-radius: 8rpx; background: #e8f2fa; color: #244b68; font-size: 25rpx; line-height: 1.6; }
+.field-hint { margin-left:12rpx; color:#93a1ae; font-size:22rpx; }
+.category-empty { padding:16rpx 0; color:#93a1ae; font-size:24rpx; }

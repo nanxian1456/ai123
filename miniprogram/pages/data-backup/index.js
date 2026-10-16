@@ -10,10 +10,12 @@ Page({
         selectedName: "",
         selectedPath: "",
         preview: null,
-        pending: null,
         busy: false,
         busyMessage: "",
     },
+    // The decrypted backup (all contacts plus the avatar as base64, up to ~5MB) is kept on the
+    // page instance. Putting it into setData would exceed WeChat's 1MB-per-call limit.
+    pendingBackup: null,
     exportPasswordInput(event) {
         if (this.data.busy)
             return;
@@ -22,10 +24,10 @@ Page({
     importPasswordInput(event) {
         if (this.data.busy)
             return;
+        this.pendingBackup = null;
         this.setData({
             importPassword: event.detail.value,
             preview: null,
-            pending: null,
         });
     },
     async exportData() {
@@ -71,11 +73,11 @@ Page({
                 const file = result.tempFiles[0];
                 if (!file || file.size > 24 * 1024 * 1024)
                     return (0, api_1.showError)(new Error("备份文件不能超过24MB"));
+                this.pendingBackup = null;
                 this.setData({
                     selectedName: file.name,
                     selectedPath: file.path,
                     preview: null,
-                    pending: null,
                 });
             },
             fail: () => (0, api_1.showError)(new Error("未选择备份文件")),
@@ -84,11 +86,11 @@ Page({
     async inspect() {
         if (this.data.busy || !this.data.selectedPath)
             return;
+        this.pendingBackup = null;
         this.setData({
             busy: true,
             busyMessage: "正在解密并核对备份…",
             preview: null,
-            pending: null,
         });
         try {
             const ownerId = await (0, api_1.getCurrentOwnerId)();
@@ -102,9 +104,9 @@ Page({
             const current = local.read(ownerId);
             if (!current)
                 throw new Error("本机资料尚未初始化，请先完成注册并重试");
+            this.pendingBackup = pending;
             this.setData({
                 preview: backup.preview(current, pending),
-                pending,
                 importPassword: "",
             });
         }
@@ -116,7 +118,7 @@ Page({
         }
     },
     restoreData() {
-        if (!this.data.pending || this.data.busy)
+        if (!this.pendingBackup || this.data.busy)
             return;
         this.setData({ busy: true, busyMessage: "等待确认恢复" });
         wx.showModal({
@@ -134,7 +136,7 @@ Page({
                     const previous = local.read(ownerId);
                     if (!previous)
                         throw new Error("本机资料尚未初始化，请先完成注册并重试");
-                    const token = await backup.restore(ownerId, this.data.pending);
+                    const token = await backup.restore(ownerId, this.pendingBackup);
                     try {
                         const restored = local.read(ownerId);
                         if (!restored)
@@ -146,30 +148,30 @@ Page({
                     }
                     catch (error) {
                         if (error.ambiguous) {
+                            this.pendingBackup = null;
                             this.setData({
                                 selectedName: "",
                                 selectedPath: "",
                                 preview: null,
-                                pending: null,
                             });
                             throw error;
                         }
                         if (!backup.rollbackRestore(ownerId, token)) {
+                            this.pendingBackup = null;
                             this.setData({
                                 selectedName: "",
                                 selectedPath: "",
                                 preview: null,
-                                pending: null,
                             });
                             throw new Error("公开资料同步失败。为保护恢复后的新改动，已保留本机数据，请到隐私设置重试同步。");
                         }
                         throw error;
                     }
+                    this.pendingBackup = null;
                     this.setData({
                         selectedName: "",
                         selectedPath: "",
                         preview: null,
-                        pending: null,
                     });
                     wx.showToast({ title: "恢复成功", icon: "success" });
                 }

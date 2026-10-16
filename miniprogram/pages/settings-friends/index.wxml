@@ -11,4 +11,5 @@
     <text>先在个人隐私中公开昵称，再选择其他可公开字段。联系人、关系、电话和邮箱始终只保存在本机。</text>
     <button class="copy-button" bindtap="publish" loading="{{publishing}}" disabled="{{publishing || !profile || (!profile.visibility.nickname && profile.publicationStatus !== 'pending' && profile.publicationStatus !== 'error')}}">更新公开资料</button>
   </view>
+  <privacy-popup />
 </view>

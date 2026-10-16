@@ -34,12 +34,14 @@
     <view class="field"><text>城市</text><input data-field="city" disabled="{{loading || loadFailed || saving}}" value="{{form.city}}" bindinput="input" placeholder="工作城市" maxlength="50"/></view>
     <view class="field"><text>电话</text><input data-field="phone" disabled="{{loading || loadFailed || saving}}" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
     <view class="field"><text>邮箱</text><input data-field="email" disabled="{{loading || loadFailed || saving}}" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
-    <view class="tag-field-label" wx:if="{{categoryNames.length}}">归入分类</view>
-    <view class="selected-tags" wx:if="{{categoryNames.length}}"><view class="selected-tag" wx:for="{{categoryNames}}" wx:key="id">{{item.name}}</view></view>
+    <view class="tag-field-label">归入分类<text class="field-hint">可多选，再点一次取消</text></view>
+    <view class="suggested-tags" wx:if="{{categoryOptions.length}}"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{categoryOptions}}" wx:key="id" data-id="{{item.id}}" bindtap="toggleCategory" aria-label="{{item.selected ? '取消归入' : '归入'}}{{item.label}}">{{item.label}}</view></view>
+    <view class="category-empty" wx:else>还没有分类，可在「图谱」页的标签树中新建</view>
     <view class="tag-field-label">标签</view>
     <view class="selected-tags" wx:if="{{selectedTags.length}}"><button class="selected-tag" wx:for="{{selectedTags}}" wx:key="*this" data-tag="{{item}}" bindtap="removeTag" aria-label="移除{{item}}标签">{{item}} <text>×</text></button></view>
     <view class="suggested-tags"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{suggestedTags}}" wx:key="name" data-tag="{{item.name}}" bindtap="toggleSuggestedTag">{{item.name}}</view></view>
     <view class="field area"><text>备注</text><textarea data-field="note" disabled="{{loading || loadFailed || saving}}" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向等" maxlength="500"/></view>
   </view>
   <button class="primary-button save" bindtap="save" loading="{{saving || loading}}" disabled="{{saving || loading || loadFailed}}">{{saving ? '保存中...' : '确认保存'}}</button>
+  <privacy-popup />
 </view>

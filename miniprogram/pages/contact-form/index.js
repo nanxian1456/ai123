@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const api_1 = require("../../utils/api");
 const duplicates = require("../../utils/duplicates");
 const contact_tags_1 = require("../../utils/contact-tags");
+const consent_1 = require("../../utils/consent");
 const AI_FIELDS = [
     { key: "name", label: "姓名" },
     { key: "organization", label: "单位" },
@@ -15,6 +16,17 @@ const AI_FIELDS = [
     { key: "note", label: "备注" },
 ];
 const CONTACT_FIELDS = AI_FIELDS.filter((item) => item.key !== "tags").map((item) => item.key);
+const MAX_CATEGORIES = 20;
+// Depth-first, in tree order; children are labelled with their full path, e.g. "大学 / 南邮".
+function flattenCategories(tree, prefix = "") {
+    const out = [];
+    for (const node of tree) {
+        const label = prefix ? `${prefix} / ${node.name}` : node.name;
+        out.push({ id: node.id, label });
+        out.push(...flattenCategories(node.children || [], label));
+    }
+    return out;
+}
 const previewFields = (data) => AI_FIELDS.map(({ key, label }) => {
     const raw = data[key];
     const value = Array.isArray(raw)
@@ -50,38 +62,52 @@ Page({
         suggestedTags: (0, contact_tags_1.suggestedTagOptions)(""),
         availableTags: [],
         selectedTags: [],
+        // null: the contact never had classifications and none were chosen, so none are sent.
         categoryIds: null,
-        categoryNames: [],
+        categoryOptions: [],
     },
+    categoryList: [],
     onLoad(query) {
         if (query.id)
             this.setData({ id: query.id });
-        if (!query.id && query.categoryId) {
+        if (!query.id && query.categoryId)
             this.setData({ categoryIds: [query.categoryId] });
-            this.resolveCategories([query.categoryId]);
-        }
+        this.loadCategories();
         this.loadTags();
         if (query.id)
             this.loadContact(query.id);
     },
-    async resolveCategories(ids) {
-        if (!ids.length)
-            return this.setData({ categoryNames: [] });
-        this.setData({ categoryNames: ids.map(id => ({ id, name: id })) });
+    async loadCategories() {
         try {
             const result = await (0, api_1.request)("/categories");
-            const names = new Map();
-            const pending = [...(result.tree || [])];
-            while (pending.length) {
-                const node = pending.pop();
-                names.set(node.id, node.name);
-                pending.push(...node.children);
-            }
-            this.setData({ categoryNames: ids.map(id => ({ id, name: names.get(id) || id })) });
+            this.categoryList = flattenCategories((result && result.tree) || []);
+            this.refreshCategoryOptions();
         }
         catch (error) {
             (0, api_1.showError)(error);
         }
+    },
+    refreshCategoryOptions() {
+        const selected = new Set(this.data.categoryIds || []);
+        this.setData({
+            categoryOptions: this.categoryList.map((item) => ({
+                ...item,
+                selected: selected.has(item.id),
+            })),
+        });
+    },
+    toggleCategory(event) {
+        if (this.data.loading || this.data.loadFailed || this.data.saving)
+            return;
+        const id = event.currentTarget.dataset.id;
+        const current = this.data.categoryIds || [];
+        const next = current.includes(id)
+            ? current.filter((item) => item !== id)
+            : [...current, id];
+        if (next.length > MAX_CATEGORIES)
+            return wx.showToast({ title: `最多归入${MAX_CATEGORIES}个分类`, icon: "none" });
+        this.setData({ categoryIds: next });
+        this.refreshCategoryOptions();
     },
     retryLoad() {
         if (this.data.id && !this.data.loading)
@@ -121,7 +147,7 @@ Page({
                 selectedTags: (0, contact_tags_1.splitTags)(tagsText),
                 categoryIds: Array.isArray(contact.categoryIds) ? contact.categoryIds : null,
             });
-            this.resolveCategories(this.data.categoryIds || []);
+            this.refreshCategoryOptions();
             wx.setNavigationBarTitle({ title: "编辑联系人" });
         }
         catch (error) {
@@ -245,6 +271,11 @@ Page({
         if (!text)
             return wx.showToast({ title: "请先粘贴人物介绍", icon: "none" });
         this.setData({ extracting: true, aiDraft: null, aiFields: [] });
+        // Separate consent before any text (usually about other people) leaves for DeepSeek.
+        if (!(await (0, consent_1.confirmAiTransfer)())) {
+            this.setData({ extracting: false });
+            return;
+        }
         try {
             const result = await (0, api_1.request)("/ai/extract", "POST", { text });
             if (this.data.aiText.trim() !== text)
