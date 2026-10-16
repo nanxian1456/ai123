@@ -9,6 +9,7 @@
     "pages/contacts-batch/index",
     "pages/contact-detail/index",
     "pages/map/index",
+    "pages/graph/index",
     "pages/relationship-form/index",
     "pages/settings/index",
     "pages/settings-profile/index",
@@ -16,6 +17,7 @@
     "pages/data-backup/index",
     "pages/settings-friends/index",
     "pages/settings-privacy/index",
+    "pages/legal/index",
     "pages/logout/index",
     "pages/me/index"
   ],
@@ -43,11 +45,16 @@
         "text": "地图"
       },
       {
+        "pagePath": "pages/graph/index",
+        "text": "图谱"
+      },
+      {
         "pagePath": "pages/me/index",
         "text": "我的"
       }
     ]
   },
+  "workers": "workers",
   "style": "v2",
   "requiredPrivateInfos": ["chooseLocation"],
   "sitemapLocation": "sitemap.json"

@@ -25,10 +25,11 @@ public class UserProfileStore {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "profiles", allEntries = true)
     public UserProfile ensure(String ownerId) {
         if (repository == null) return testProfiles.computeIfAbsent(ownerId, id -> new UserProfile(id, "", "", "", "", "", "male-1", "", ProfileVisibility.privateByDefault(), false, "123AB456"));
-        UserProfileEntity entity = repository.findById(ownerId).orElseGet(() -> new UserProfileEntity(ownerId));
+        UserProfileEntity entity = repository.findById(ownerId).orElse(null);
+        if (entity != null && isContactCode(entity.getContactCode())) return toProfile(entity);
+        if (entity == null) entity = new UserProfileEntity(ownerId);
         if (!isContactCode(entity.getContactCode())) entity.setContactCode(newContactCode());
         return toProfile(repository.save(entity));
     }

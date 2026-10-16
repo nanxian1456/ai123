@@ -12,4 +12,5 @@
     </view>
     <button class="primary-button save" bindtap="save" disabled="{{saving || !selectedCount}}" loading="{{saving}}">保存选中的联系人</button>
   </view>
+  <privacy-popup />
 </view>

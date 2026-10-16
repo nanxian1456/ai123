@@ -1,5 +1,7 @@
 <view class="page">
   <settings-entry />
+  <view wx:if="{{loading}}" role="status">正在加载联系人资料…</view>
+  <view wx:if="{{loadFailed}}">联系人资料加载失败，重试后才能编辑。<button bindtap="retryLoad">重新加载</button></view>
   <view class="card ai-card">
     <view class="paste-heading"><view class="form-title">粘贴联系人信息</view><text>{{aiText.length}}/4000</text></view>
     <textarea class="paste-input" placeholder="粘贴人物介绍或联系人资料" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
@@ -7,13 +9,14 @@
       <button class="paste-button" bindtap="pasteFromClipboard">粘贴</button>
       <button class="clear-button" bindtap="clearAiText" disabled="{{!aiText}}">清空</button>
     </view>
-    <button class="extract" loading="{{extracting}}" disabled="{{extracting}}" bindtap="extract">智能整理</button>
+    <view class="ai-disclosure">点击智能整理会将粘贴的文字发送至 DeepSeek。请确认你有权提供这些资料，并在保存前核对整理结果。</view>
+    <button class="extract" loading="{{extracting}}" disabled="{{extracting || loading || loadFailed}}" bindtap="extract">智能整理</button>
     <view class="ai-preview" wx:if="{{aiFields.length}}">
       <view class="preview-title">整理结果</view>
       <view class="preview-field" wx:for="{{aiFields}}" wx:key="key">
         <text class="preview-label">{{item.label}}</text><text class="preview-value">{{item.value}}</text>
       </view>
-      <button class="apply-draft" bindtap="applyAiDraft">填入联系人信息</button>
+      <button class="apply-draft" disabled="{{loading || loadFailed}}" bindtap="applyAiDraft">填入联系人信息</button>
     </view>
   </view>
   <view class="card import-card" wx:if="{{!id}}">
@@ -24,19 +27,23 @@
   <button class="batch-button" bindtap="openBatch">批量录入联系人</button>
   <view class="section-title" id="contact-form">联系人信息</view>
   <view class="card form">
-    <view class="field"><text>姓名 *</text><input data-field="name" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
-    <view class="field"><text>单位</text><input data-field="organization" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构" maxlength="100"/></view>
-    <view class="field"><text>职务</text><input data-field="position" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等" maxlength="50"/></view>
-    <view class="field"><text>国家</text><input data-field="country" value="{{form.country}}" bindinput="input" placeholder="工作国家或地区" maxlength="50"/></view>
-    <view class="field"><text>省份 / 州</text><input data-field="province" value="{{form.province}}" bindinput="input" placeholder="所在省份或州" maxlength="50"/></view>
-    <view class="field"><text>城市</text><input data-field="city" value="{{form.city}}" bindinput="input" placeholder="工作城市" maxlength="50"/></view>
-    <view class="field"><text>详细位置</text><view class="location-field"><input data-field="address" value="{{form.address}}" bindinput="input" placeholder="街道、园区或场所" maxlength="200"/><button class="location-pick" bindtap="chooseLocation">地图选点</button></view></view>
-    <view class="field"><text>电话</text><input data-field="phone" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
-    <view class="field"><text>邮箱</text><input data-field="email" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
+    <view class="field"><text>姓名 *</text><input data-field="name" disabled="{{loading || loadFailed || saving}}" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
+    <view class="field"><text>单位</text><input data-field="organization" disabled="{{loading || loadFailed || saving}}" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构" maxlength="100"/></view>
+    <view class="field"><text>职务</text><input data-field="position" disabled="{{loading || loadFailed || saving}}" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等" maxlength="50"/></view>
+    <view class="field"><text>国家</text><input data-field="country" disabled="{{loading || loadFailed || saving}}" value="{{form.country}}" bindinput="input" placeholder="工作国家或地区" maxlength="50"/></view>
+    <view class="field"><text>省份</text><input data-field="province" disabled="{{loading || loadFailed || saving}}" value="{{form.province}}" bindinput="input" placeholder="所在省份" maxlength="50"/></view>
+    <view class="field"><text>城市</text><input data-field="city" disabled="{{loading || loadFailed || saving}}" value="{{form.city}}" bindinput="input" placeholder="工作城市" maxlength="50"/></view>
+    <view class="field"><text>详细位置</text><view class="location-field"><input data-field="address" disabled="{{loading || loadFailed || saving}}" value="{{form.address}}" bindinput="input" placeholder="街道、门牌等" maxlength="120"/><text class="location-pick" bindtap="chooseLocation">地图选点</text></view></view>
+    <view class="field"><text>电话</text><input data-field="phone" disabled="{{loading || loadFailed || saving}}" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
+    <view class="field"><text>邮箱</text><input data-field="email" disabled="{{loading || loadFailed || saving}}" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
+    <view class="tag-field-label">归入分类<text class="field-hint">可多选，再点一次取消</text></view>
+    <view class="suggested-tags" wx:if="{{categoryOptions.length}}"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{categoryOptions}}" wx:key="id" data-id="{{item.id}}" bindtap="toggleCategory" aria-label="{{item.selected ? '取消归入' : '归入'}}{{item.label}}">{{item.label}}</view></view>
+    <view class="category-empty" wx:else>还没有分类，可在「图谱」页的标签树中新建</view>
     <view class="tag-field-label">标签</view>
     <view class="selected-tags" wx:if="{{selectedTags.length}}"><button class="selected-tag" wx:for="{{selectedTags}}" wx:key="*this" data-tag="{{item}}" bindtap="removeTag" aria-label="移除{{item}}标签">{{item}} <text>×</text></button></view>
     <view class="suggested-tags"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{suggestedTags}}" wx:key="name" data-tag="{{item.name}}" bindtap="toggleSuggestedTag">{{item.name}}</view></view>
-    <view class="field area"><text>备注</text><textarea data-field="note" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向等" maxlength="500"/></view>
+    <view class="field area"><text>备注</text><textarea data-field="note" disabled="{{loading || loadFailed || saving}}" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向等" maxlength="500"/></view>
   </view>
-  <button class="primary-button save" bindtap="save" loading="{{saving}}" disabled="{{saving}}">{{saving ? '保存中...' : '确认保存'}}</button>
+  <button class="primary-button save" bindtap="save" loading="{{saving || loading}}" disabled="{{saving || loading || loadFailed}}">{{saving ? '保存中...' : '确认保存'}}</button>
+  <privacy-popup />
 </view>

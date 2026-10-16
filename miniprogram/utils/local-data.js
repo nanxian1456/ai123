@@ -1,5 +1,6 @@
 const PREFIX = "ai-network-local-v1:";
 const { SUGGESTED_TAGS } = require("./contact-tags");
+const categories = require("./categories");
 const PRIVATE = { avatar: false, nickname: false, organization: false, position: false, city: false, bio: false };
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SURNAMES = "赵Z钱Q孙S李L周Z吴W郑Z王W冯F陈C褚C卫W蒋J沈S韩H杨Y朱Z秦Q尤Y许X何H吕L施S张Z孔K曹C严Y华H金J魏W陶T姜J戚Q谢X邹Z喻Y柏B水S窦D章Z云Y苏S潘P葛G奚X范F彭P郎L鲁L韦W昌C马M苗M凤F花H方F俞Y任R袁Y柳L鲍B史S唐T费F廉L岑C薛X雷L贺H倪N汤T滕T殷Y罗L毕B郝H邬W安A常C乐Y于Y时S傅F皮P卞B齐Q康K伍W余Y元Y卜B顾G孟M平P黄H和H穆M萧X尹Y姚Y邵S湛Z汪W祁Q毛M禹Y狄D米M贝B明M臧Z计J伏F成C戴D宋S茅M庞P熊X纪J舒S屈Q项X祝Z董D梁L杜D阮R蓝L闵M席X季J麻M强Q贾J路L娄L危W江J童T颜Y郭G梅M盛S林L刁D钟Z徐X邱Q骆L高G夏X蔡C田T樊F胡H凌L霍H虞Y万W支Z柯K昝Z管G卢L莫M经J房F裘Q缪M干G解X应Y宗Z丁D宣X贲B邓D郁Y单S杭H洪H包B诸Z左Z石S崔C吉J龚G程C嵇J邢X滑H裴P陆L荣R翁W荀X羊Y惠H甄Z曲Q家J封F芮R羿Y储C靳J汲J邴B糜M松S井J段D富F巫W乌W焦J巴B弓G牧M隗W山S谷G车C侯H宓M蓬P全Q郗X班B仰Y秋Q仲Z伊Y宫G宁N仇Q栾L暴B甘G钭T厉L戎R祖Z武W符F刘L景J詹Z束S龙L叶Y幸X司S韶S黎L蓟J薄B印Y宿S白B怀H蒲P台T从C鄂E索S赖L卓Z蔺L屠T蒙M池C乔Q阴Y胥X能N苍C双S闻W莘S党D翟Z谭T贡G劳L逄P姬J申S扶F堵D冉R宰Z郦L雍Y却Q璩Q桑S桂G濮P牛N寿S通T边B扈H燕Y冀J郏J浦P尚S农N温W别B庄Z晏Y柴C瞿Q阎Y充C慕M连L茹R习X宦H艾A鱼Y容R向X古G易Y慎S戈G廖L庾Y终Z暨J居J衡H步B都D耿G满M弘H匡K国G文W寇K广G禄L阙Q东D欧O殳S沃W利L蔚W越Y夔K隆L师S巩G厍S聂N晁C勾G敖A融R冷L訾Z辛X阚K那N简J饶R空K曾Z毋W沙S乜N养Y鞠J须X丰F巢C关G蒯K相X查Z后H荆J红H游Y竺Z权Q逯L盖G益Y桓H公G";
@@ -10,13 +11,143 @@ function emptyProfile(ownerId) {
   return { ownerId, nickname: "", organization: "", position: "", city: "", bio: "", avatarType: "male-1", avatarUrl: "", visibility: { ...PRIVATE }, profileCompleted: false, contactCode: "" };
 }
 function key(ownerId) { return PREFIX + ownerId; }
+const SHARDED = "ai-network-sharded-v1";
+const SHARD_BYTES = 200 * 1024;
+const ACCOUNT_BYTES = 8 * 1024 * 1024;
+const MAX_SHARDS = Math.ceil(ACCOUNT_BYTES / SHARD_BYTES);
+const LEGACY_COLLECTIONS = ["contacts", "relationships"];
+const LEGACY_ACCOUNT_BYTES = 10 * 1024 * 1024;
+let generationSequence = 0;
+function storageError() { return new Error("本机存储不足，保存失败，请先导出备份并释放手机存储空间"); }
+function readError() { return new Error("本机数据无法读取，请保留当前数据并使用备份恢复，勿重新导入旧数据"); }
+function shardKey(ownerId, generation, index) { return `ai-network-local-shards-v1:${encodeURIComponent(ownerId)}:shard:${generation}:${index}`; }
+function validManifest(value, ownerId) {
+  return value && value.storage === SHARDED && value.version === 1 && value.ownerId === ownerId &&
+    typeof value.generation === "string" && /^[a-z0-9]{1,12}-[a-z0-9]{1,12}-[a-z0-9]{1,20}$/.test(value.generation) &&
+    Number.isSafeInteger(value.count) && value.count > 0 && value.count <= MAX_SHARDS &&
+    Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= ACCOUNT_BYTES;
+}
+function validLegacyChunks(value, ownerId) {
+  const layout = value && value.layout;
+  return value && value.version === 1 && value.storage == null && value.profile && value.profile.ownerId === ownerId &&
+    layout && Number.isSafeInteger(layout.generation) && layout.generation > 0 &&
+    LEGACY_COLLECTIONS.every(name => Number.isSafeInteger(layout[name]) && layout[name] >= 0 && layout[name] <= 64);
+}
+function legacyChunkKey(ownerId, layout, name, index) { return `${key(ownerId)}:g${layout.generation}:${name}:${index}`; }
+function readLegacyChunks(ownerId, stored) {
+  if (!validLegacyChunks(stored, ownerId)) throw readError();
+  const { layout, ...value } = stored;
+  let total = utf8Bytes(JSON.stringify(value));
+  for (const name of LEGACY_COLLECTIONS) {
+    value[name] = [];
+    for (let index = 0; index < layout[name]; index++) {
+      const part = wx.getStorageSync(legacyChunkKey(ownerId, layout, name, index));
+      if (!Array.isArray(part) || !part.length) throw readError();
+      const bytes = utf8Bytes(JSON.stringify(part));
+      total += bytes;
+      if (bytes > 1024 * 1024 || total > LEGACY_ACCOUNT_BYTES) throw readError();
+      for (const item of part) value[name].push(item);
+    }
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+function codePointSize(value, index) {
+  const first = value.charCodeAt(index);
+  if (first < 0x80) return [1, 1];
+  if (first < 0x800) return [2, 1];
+  if (first >= 0xd800 && first <= 0xdbff && value.charCodeAt(index + 1) >= 0xdc00 && value.charCodeAt(index + 1) <= 0xdfff) return [4, 2];
+  return [3, 1];
+}
+function utf8Bytes(value) {
+  let total = 0;
+  for (let index = 0; index < value.length;) { const [bytes, width] = codePointSize(value, index); total += bytes; index += width; }
+  return total;
+}
+function splitStorage(serialized) {
+  const shards = [];
+  let start = 0;
+  let currentBytes = 0;
+  let total = 0;
+  for (let index = 0; index < serialized.length;) {
+    const [bytes, width] = codePointSize(serialized, index);
+    total += bytes;
+    if (total > ACCOUNT_BYTES) throw new Error("本机存储已接近容量上限，请先导出备份并减少联系人或备注");
+    if (currentBytes + bytes > SHARD_BYTES) { shards.push(serialized.slice(start, index)); start = index; currentBytes = 0; }
+    currentBytes += bytes;
+    index += width;
+  }
+  if (start < serialized.length) shards.push(serialized.slice(start));
+  return { shards, bytes: total };
+}
+function cleanupKeys(keys) {
+  if (typeof wx.removeStorageSync !== "function") return;
+  for (const storageKey of keys) { try { wx.removeStorageSync(storageKey); } catch (_) { /* A committed generation remains readable if cleanup fails. */ } }
+}
+function cleanupGeneration(ownerId, previous) {
+  if (validManifest(previous, ownerId)) {
+    cleanupKeys(Array.from({ length: previous.count }, (_, index) => shardKey(ownerId, previous.generation, index)));
+  } else if (validLegacyChunks(previous, ownerId)) {
+    for (const name of LEGACY_COLLECTIONS) {
+      for (let index = 0; index < previous.layout[name]; index++) {
+        const storageKey = legacyChunkKey(ownerId, previous.layout, name, index);
+        // An old unescaped key can alias another account's index; only array chunks belong here.
+        try { if (Array.isArray(wx.getStorageSync(storageKey))) cleanupKeys([storageKey]); } catch (_) { /* Cleanup cannot invalidate an already committed write. */ }
+      }
+    }
+  }
+}
 function read(ownerId) {
   const stored = wx.getStorageSync(key(ownerId));
-  return stored && stored.version === 1 ? stored : null;
+  if (stored && stored.storage === SHARDED) {
+    if (!validManifest(stored, ownerId)) throw readError();
+    const shards = [];
+    let bytes = 0;
+    for (let index = 0; index < stored.count; index++) {
+      const shard = wx.getStorageSync(shardKey(ownerId, stored.generation, index));
+      if (typeof shard !== "string" || !shard) throw readError();
+      const shardBytes = utf8Bytes(shard);
+      if (shardBytes > SHARD_BYTES) throw readError();
+      bytes += shardBytes;
+      shards.push(shard);
+    }
+    if (bytes !== stored.bytes) throw readError();
+    let value;
+    try { value = JSON.parse(shards.join("")); } catch (_) { throw readError(); }
+    if (!value || value.version !== 1 || !value.profile || value.profile.ownerId !== ownerId) throw readError();
+    return value;
+  }
+  if (!stored) return null;
+  if (stored.layout !== undefined) return readLegacyChunks(ownerId, stored);
+  if (stored.version !== 1 || !stored.profile || stored.profile.ownerId !== ownerId) throw readError();
+  return JSON.parse(JSON.stringify(stored));
 }
 function write(ownerId, value) {
-  wx.setStorageSync(key(ownerId), value);
+  if (value == null) {
+    const previous = wx.getStorageSync(key(ownerId));
+    try { wx.setStorageSync(key(ownerId), value); } catch (_) { throw storageError(); }
+    cleanupGeneration(ownerId, previous);
+    return value;
+  }
+  const serialized = JSON.stringify(value);
+  const { shards, bytes } = splitStorage(serialized);
+  const previous = wx.getStorageSync(key(ownerId));
+  const generation = `${Date.now().toString(36)}-${(++generationSequence).toString(36)}-${Math.random().toString(36).slice(2) || "0"}`;
+  const stagedKeys = shards.map((_, index) => shardKey(ownerId, generation, index));
+  // Never overwrite a generation if an unexpected identifier collision occurs.
+  if (stagedKeys.some(storageKey => wx.getStorageSync(storageKey))) throw storageError();
+  const attemptedKeys = [];
+  try {
+    shards.forEach((shard, index) => { attemptedKeys.push(stagedKeys[index]); wx.setStorageSync(stagedKeys[index], shard); });
+    // Only this final storage write makes the fully staged generation visible.
+    wx.setStorageSync(key(ownerId), { storage: SHARDED, version: 1, ownerId, generation, count: shards.length, bytes });
+  } catch (_) { cleanupKeys(attemptedKeys); throw storageError(); }
+  cleanupGeneration(ownerId, previous);
   return value;
+}
+function storageUsage() {
+  if (typeof wx.getStorageInfoSync !== "function") return null;
+  const info = wx.getStorageInfoSync();
+  return { usedKB: info.currentSize, limitKB: info.limitSize };
 }
 function text(value, label, limit, required = false) {
   const result = String(value == null ? "" : value).trim();
@@ -24,7 +155,7 @@ function text(value, label, limit, required = false) {
   if (result.length > limit) throw new Error(`${label}不能超过${limit}字`);
   return result;
 }
-function contactInput(payload) {
+function contactInput(payload, data) {
   if (!payload || typeof payload !== "object") throw new Error("联系人资料无效");
   const result = {};
   for (const [field, label, limit] of [["name", "姓名", 50], ["organization", "单位", 100], ["position", "职务", 50], ["country", "国家", 50], ["province", "省份", 50], ["city", "城市", 50], ["address", "详细位置", 200], ["phone", "电话", 30], ["email", "邮箱", 100], ["note", "备注", 500]]) {
@@ -38,6 +169,7 @@ function contactInput(payload) {
   result.tags = (payload.tags || []).map(item => text(item, "标签", 20, true));
   if (result.tags.length > 10) throw new Error("标签最多10个");
   result.tags = Array.from(new Set(result.tags));
+  if (Object.prototype.hasOwnProperty.call(payload, "categoryIds")) result.categoryIds = categories.contactIds(data, payload.categoryIds);
   return result;
 }
 function migrate(ownerId, exportData) {
@@ -48,7 +180,12 @@ function migrate(ownerId, exportData) {
   const profile = exportData.profile ? { ...emptyProfile(ownerId), ...exportData.profile, visibility: { ...PRIVATE, ...(exportData.profile.visibility || {}) } } : emptyProfile(ownerId);
   const maxContactId = contacts.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
   const maxRelationshipId = relationships.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
-  return write(ownerId, { version: 1, profile, contacts, relationships, tagCatalog: [], nextContactId: maxContactId + 1, nextRelationshipId: maxRelationshipId + 1 });
+  const value = { version: 1, profile, contacts, relationships, tagCatalog: [], nextContactId: maxContactId + 1, nextRelationshipId: maxRelationshipId + 1 };
+  for (const name of ["categoryTree", "nextCategoryId", "dismissedCategories"]) {
+    if (exportData[name] !== undefined) value[name] = exportData[name];
+  }
+  categories.validate(value);
+  return write(ownerId, value);
 }
 function requireData(ownerId) {
   const data = read(ownerId);
@@ -92,6 +229,11 @@ function handle(ownerId, path, method = "GET", payload) {
   const params = {};
   search.split("&").filter(Boolean).forEach(part => { const [name, value = ""] = part.split("="); params[decodeURIComponent(name)] = decodeURIComponent(value.replace(/\+/g, " ")); });
   const query = { get: name => params[name] || "" };
+  if (route === "/categories" || route.startsWith("/categories/")) {
+    const result = categories.handle(data, route, method, payload);
+    if (method !== "GET") write(ownerId, data);
+    return result;
+  }
   if (route === "/me") {
     if (method === "GET") return data.profile;
     if (method === "PATCH") {
@@ -111,7 +253,7 @@ function handle(ownerId, path, method = "GET", payload) {
   }
   if (route === "/contacts" && method === "GET") return data.contacts.filter(item => matchContact(item, query));
   if (route === "/contacts" && method === "POST") {
-    const fields = contactInput(payload);
+    const fields = contactInput(payload, data);
     const contact = { ...fields, id: data.nextContactId++, ownerId };
     data.contacts.push(contact);
     write(ownerId, data);
@@ -119,7 +261,7 @@ function handle(ownerId, path, method = "GET", payload) {
   }
   if (route === "/contacts/batch" && method === "POST") {
     if (!Array.isArray(payload) || !payload.length || payload.length > 100) throw new Error("批量联系人数量无效");
-    const fields = payload.map(contactInput);
+    const fields = payload.map(item => contactInput(item, data));
     const added = fields.map((item, index) => ({ ...item, id: data.nextContactId + index, ownerId }));
     data.contacts.push(...added);
     data.nextContactId += added.length;
@@ -146,7 +288,7 @@ function handle(ownerId, path, method = "GET", payload) {
     const contact = findContact(data, contactRoute[1]);
     if (method === "GET") return contact;
     if (method === "PATCH") {
-      Object.assign(contact, contactInput(payload));
+      Object.assign(contact, contactInput(payload, data));
       write(ownerId, data);
       return contact;
     }
@@ -157,11 +299,15 @@ function handle(ownerId, path, method = "GET", payload) {
       return null;
     }
   }
+  if (route === "/relationships" && method === "GET") return data.relationships;
   if (route === "/relationships" && method === "POST") {
     const source = findContact(data, payload.sourceId);
     const target = findContact(data, payload.targetId);
     if (source.id === target.id) throw new Error("关系对象无效");
-    const relationship = { id: data.nextRelationshipId++, ownerId, sourceId: source.id, targetId: target.id, type: text(payload.type, "关系类型", 30, true), note: text(payload.note, "关系备注", 200) };
+    const type = text(payload.type, "关系类型", 30, true);
+    const note = text(payload.note, "关系备注", 200);
+    if (data.relationships.some(item => item.sourceId === source.id && item.targetId === target.id && item.type === type && (item.note || "") === note)) throw new Error("相同关系已存在");
+    const relationship = { id: data.nextRelationshipId++, ownerId, sourceId: source.id, targetId: target.id, type, note };
     data.relationships.push(relationship);
     write(ownerId, data);
     return relationship;
@@ -221,4 +367,4 @@ function handle(ownerId, path, method = "GET", payload) {
   throw new Error("本地接口暂不支持此操作");
 }
 
-module.exports = { read, migrate, handle, write, key, initial };
+module.exports = { read, migrate, handle, write, key, initial, storageUsage };

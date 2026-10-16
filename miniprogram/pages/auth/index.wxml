@@ -1,6 +1,6 @@
 <view class="auth-page">
   <view class="auth-bg">
-    <video class="bg-video" src="{{videoUrl}}" autoplay="{{true}}" loop="{{true}}" muted="{{true}}" show-center-play-btn="{{false}}" show-play-btn="{{false}}" controls="{{false}}" object-fit="cover" play-btn-position="center" show-mute-btn="{{false}}"></video>
+    <video wx:if="{{bgVideo}}" class="bg-video" src="{{bgVideo}}" binderror="onVideoError" autoplay="{{true}}" loop="{{true}}" muted="{{true}}" show-center-play-btn="{{false}}" show-play-btn="{{false}}" controls="{{false}}" object-fit="cover"></video>
     <view class="bg-overlay"></view>
     <view class="glow glow-1"></view>
     <view class="glow glow-2"></view>
@@ -21,7 +21,7 @@
         <view class="card-content">
           <view class="check-mark">✓</view>
           <view class="card-title">安全的个人空间</view>
-          <view class="card-desc">数据仅自己可见</view>
+          <view class="card-desc">联系人默认只存在本机</view>
         </view>
       </view>
       <view class="benefit-card card-right">
@@ -36,11 +36,14 @@
   </view>
 
   <view class="login-area">
-    <view class="login-button {{loggingIn ? 'disabled' : ''}}" bindtap="login">
+    <view class="login-button {{loggingIn || !agreed ? 'disabled' : ''}}" bindtap="login">
       <text wx:if="{{!loggingIn}}">微信一键登录</text>
       <text wx:else>正在登录...</text>
       <text class="arrow">›</text>
     </view>
-    <view class="agreement">登录即表示你同意以微信身份创建应用账号</view>
+    <view class="agreement">
+      <view class="agree-box {{agreed ? 'checked' : ''}}" bindtap="toggleAgree" role="checkbox" aria-checked="{{agreed}}" aria-label="同意用户协议和隐私政策">{{agreed ? '✓' : ''}}</view>
+      <text bindtap="toggleAgree">我已阅读并同意</text><text class="agreement-link" bindtap="openTerms">《用户协议》</text><text>和</text><text class="agreement-link" bindtap="openPrivacy">《隐私政策》</text><text>，并以微信身份创建应用账号</text>
+    </view>
   </view>
 </view>

@@ -14,24 +14,32 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class WechatAuthService {
     private static final Logger logger = LoggerFactory.getLogger(WechatAuthService.class);
     private final WechatProperties properties;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient httpClient;
 
+    @Autowired
     public WechatAuthService(WechatProperties properties, ObjectMapper objectMapper) {
+        this(properties, objectMapper, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(properties.connectTimeoutSeconds())).build());
+    }
+
+    public WechatAuthService(WechatProperties properties, ObjectMapper objectMapper, HttpClient httpClient) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.httpClient = httpClient;
     }
 
     public String exchangeCode(String code) {
         if (!properties.configured()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "微信登录尚未配置 AppID 和 Secret");
         try {
             String query = "appid=" + encode(properties.appId()) + "&secret=" + encode(properties.appSecret()) + "&js_code=" + encode(code) + "&grant_type=authorization_code";
-            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.weixin.qq.com/sns/jscode2session?" + query)).GET().build();
+            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.weixin.qq.com/sns/jscode2session?" + query)).timeout(Duration.ofSeconds(properties.requestTimeoutSeconds())).GET().build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 logger.warn("WeChat login provider returned HTTP {}", response.statusCode());
@@ -45,6 +53,7 @@ public class WechatAuthService {
             }
             return openId;
         } catch (ResponseStatusException exception) { throw exception; }
+        catch (InterruptedException exception) { Thread.currentThread().interrupt(); throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "微信登录服务暂不可用"); }
         catch (Exception exception) { throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "微信登录服务暂不可用"); }
     }
 
