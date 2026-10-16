@@ -155,12 +155,18 @@ function text(value, label, limit, required = false) {
   if (result.length > limit) throw new Error(`${label}不能超过${limit}字`);
   return result;
 }
+function coordinate(value) {
+  if (value == null || (typeof value === "string" && !value.trim())) return null;
+  return Number.isFinite(Number(value)) ? Number(value) : null;
+}
 function contactInput(payload, data) {
   if (!payload || typeof payload !== "object") throw new Error("联系人资料无效");
   const result = {};
-  for (const [field, label, limit] of [["name", "姓名", 50], ["organization", "单位", 100], ["position", "职务", 50], ["city", "城市", 50], ["province", "省份", 50], ["phone", "电话", 30], ["email", "邮箱", 100], ["note", "备注", 500]]) {
+  for (const [field, label, limit] of [["name", "姓名", 50], ["organization", "单位", 100], ["position", "职务", 50], ["country", "国家", 50], ["province", "省份", 50], ["city", "城市", 50], ["address", "详细位置", 200], ["phone", "电话", 30], ["email", "邮箱", 100], ["note", "备注", 500]]) {
     result[field] = text(payload[field], label, limit, field === "name");
   }
+  result.latitude = coordinate(payload.latitude);
+  result.longitude = coordinate(payload.longitude);
   if (result.phone && !/^[0-9+()\- ]{6,30}$/.test(result.phone)) throw new Error("手机号格式无效");
   if (result.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result.email)) throw new Error("邮箱格式无效");
   if (payload.tags != null && !Array.isArray(payload.tags)) throw new Error("标签格式无效");
@@ -204,6 +210,8 @@ function matchContact(contact, query) {
   const keyword = (query.get("keyword") || "").toLowerCase().trim();
   return (!keyword || [contact.name, contact.organization, contact.position].some(value => (value || "").toLowerCase().includes(keyword)))
     && (!query.get("city") || contact.city === query.get("city"))
+    && (!query.get("country") || (contact.country || "") === query.get("country"))
+    && (!query.get("province") || (contact.province || "") === query.get("province"))
     && (!query.get("tag") || (contact.tags || []).includes(query.get("tag")));
 }
 function findContact(data, id) {
@@ -323,6 +331,29 @@ function handle(ownerId, path, method = "GET", payload) {
     recentContacts: data.contacts.slice().sort((a, b) => b.id - a.id).slice(0, 3)
   };
   if (route === "/maps/cities" && method === "GET") return count(data.contacts.map(item => item.city));
+  if (route === "/maps/regions" && method === "GET") {
+    const level = query.get("level") || "country";
+    const country = query.get("country");
+    const province = query.get("province");
+    const sample = query.get("sample") === "true";
+    if (!["country", "province", "city"].includes(level)) throw new Error("无效的地区层级");
+    const counts = new Map();
+    const samples = new Map();
+    data.contacts.forEach(item => {
+      if (level !== "country" && (item.country || "") !== country) return;
+      if (level === "city" && (item.province || "") !== province) return;
+      const name = level === "country" ? (item.country || "") : level === "province" ? (item.province || "") : (item.city || "");
+      counts.set(name, (counts.get(name) || 0) + 1);
+      if (!sample) return;
+      if (!samples.has(name)) samples.set(name, []);
+      samples.get(name).push(item);
+    });
+    return Array.from(counts, ([name, amount]) => {
+      const entry = { name, count: amount };
+      if (sample) entry.sample = (samples.get(name) || []).slice(0, 3).map(contact => ({ id: contact.id, name: contact.name, initial: initial(contact.name) }));
+      return entry;
+    }).sort((a, b) => b.count - a.count || String(a.name).localeCompare(String(b.name), "zh"));
+  }
   if (route === "/tags" && method === "GET") {
     const counts = new Map(count(data.contacts.flatMap(item => item.tags || [])).map(item => [item.name, item.count]));
     (data.tagCatalog || []).forEach(name => { if (!counts.has(name)) counts.set(name, 0); });

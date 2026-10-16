@@ -107,7 +107,11 @@ public class ContactService {
         entity.setOrganization(clean(request.organization()));
         entity.setPosition(clean(request.position()));
         entity.setCity(clean(request.city()));
+        entity.setAddress(clean(request.address()));
+        entity.setLatitude(request.latitude());
+        entity.setLongitude(request.longitude());
         entity.setProvince(clean(request.province()));
+        entity.setCountry(clean(request.country()));
         entity.setPhone(clean(request.phone()));
         entity.setEmail(clean(request.email()));
         entity.setNote(clean(request.note()));
@@ -116,7 +120,9 @@ public class ContactService {
     }
 
     private Contact toContact(ContactEntity entity) {
-        return new Contact(entity.getId(), entity.getOwnerId(), entity.getName(), entity.getOrganization(), entity.getPosition(), entity.getCity(), entity.getProvince(), entity.getPhone(), entity.getEmail(), entity.getNote(), List.copyOf(entity.getTags()));
+        return new Contact(entity.getId(), entity.getOwnerId(), entity.getName(), entity.getOrganization(), entity.getPosition(), entity.getCity(),
+                entity.getAddress() == null ? "" : entity.getAddress(), entity.getLatitude(), entity.getLongitude(),
+                entity.getProvince(), entity.getCountry(), entity.getPhone(), entity.getEmail(), entity.getNote(), List.copyOf(entity.getTags()));
     }
 
     private Relationship toRelationship(RelationshipEntity entity) {

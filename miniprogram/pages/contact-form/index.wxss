@@ -27,3 +27,7 @@
 .ai-disclosure { margin: 18rpx 0; padding: 18rpx; border-radius: 8rpx; background: #e8f2fa; color: #244b68; font-size: 25rpx; line-height: 1.6; }
 .field-hint { margin-left:12rpx; color:#93a1ae; font-size:22rpx; }
 .category-empty { padding:16rpx 0; color:#93a1ae; font-size:24rpx; }
+
+.location-field { display: flex; align-items: center; flex: 1; min-width: 0; gap: 12rpx; }
+.location-field input { min-width: 0; }
+.location-pick { flex: 0 0 auto; margin: 0; padding: 0 14rpx; color: #1677d2; background: #e9f4ff; border-radius: 8rpx; font-size: 23rpx; line-height: 58rpx; }

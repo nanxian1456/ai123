@@ -9,3 +9,5 @@
 .directory { flex:1; min-height:0; height:auto; }
 .letter-index { top:50%; transform:translateY(-50%); }
 .create-tag { border-style:dashed; color:#1677d2; background:#f5faff; }
+.filter-row text:first-child { min-width: 0; overflow-wrap: anywhere; }
+.filter-row text:last-child { flex: none; padding-left: 16rpx; }

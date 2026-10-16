@@ -16,6 +16,10 @@ export interface LocalContact {
   note?: string;
   tags?: string[];
   categoryIds?: string[];
+  country?: string;
+  address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 export interface LocalData {
   version: number;

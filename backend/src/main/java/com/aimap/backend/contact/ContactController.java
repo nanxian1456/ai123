@@ -27,13 +27,17 @@ public class ContactController {
     @GetMapping
     public List<Contact> list(@RequestParam(defaultValue = "") @Size(max = 100) String keyword,
                               @RequestParam(defaultValue = "") @Size(max = 50) String city,
-                              @RequestParam(defaultValue = "") @Size(max = 20) String tag) {
+                              @RequestParam(defaultValue = "") @Size(max = 20) String tag,
+                              @RequestParam(defaultValue = "") @Size(max = 50) String country,
+                              @RequestParam(defaultValue = "") @Size(max = 50) String province) {
         String ownerId = CurrentUser.openId();
         String lowerKeyword = keyword.toLowerCase(Locale.ROOT).trim();
         return contacts.findAll(ownerId).stream()
                 .filter(c -> lowerKeyword.isBlank() || contains(c.name(), lowerKeyword) || contains(c.organization(), lowerKeyword) || contains(c.position(), lowerKeyword))
                 .filter(c -> city.isBlank() || c.city().equals(city))
                 .filter(c -> tag.isBlank() || c.tags().contains(tag))
+                .filter(c -> country.isBlank() || c.country().equals(country))
+                .filter(c -> province.isBlank() || c.province().equals(province))
                 .toList();
     }
 
@@ -51,7 +55,9 @@ public class ContactController {
     @GetMapping("/directory")
     public List<ContactDirectoryItem> directory(@RequestParam(defaultValue = "") @Size(max = 100) String keyword,
                                                  @RequestParam(defaultValue = "") @Size(max = 50) String city,
-                                                 @RequestParam(defaultValue = "") @Size(max = 20) String tag) {
+                                                 @RequestParam(defaultValue = "") @Size(max = 20) String tag,
+                                                 @RequestParam(required = false) @Size(max = 50) String country,
+                                                 @RequestParam(required = false) @Size(max = 50) String province) {
         String ownerId = CurrentUser.openId();
         String lowerKeyword = keyword.toLowerCase(Locale.ROOT).trim();
         Collator collator = Collator.getInstance(Locale.CHINA);
@@ -59,6 +65,8 @@ public class ContactController {
                 .filter(c -> lowerKeyword.isBlank() || contains(c.name(), lowerKeyword) || contains(c.organization(), lowerKeyword) || contains(c.position(), lowerKeyword))
                 .filter(c -> city.isBlank() || c.city().equals(city))
                 .filter(c -> tag.isBlank() || c.tags().contains(tag))
+                .filter(c -> country == null || c.country().equals(country))
+                .filter(c -> province == null || c.province().equals(province))
                 .map(contact -> ContactDirectoryItem.from(contact, PinyinInitial.of(contact.name())))
                 .sorted(Comparator.comparing(ContactDirectoryItem::initial).thenComparing(ContactDirectoryItem::name, collator))
                 .toList();

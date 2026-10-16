@@ -1,5 +1,89 @@
 <view class="page map-page">
   <settings-entry />
-  <view class="map-hero"><view class="globe"><view class="latitude a"></view><view class="latitude b"></view><view class="longitude a"></view><view class="longitude b"></view><view class="city-dot one"></view><view class="city-dot two"></view><view class="city-dot three"></view></view><view class="hero-copy"><view>全球人脉分布</view><text>连接地域，发现更多可能</text></view><view class="total-panel"><view><text>{{total}}</text><text>联系人</text></view><view><text>{{cities.length}}</text><text>城市</text></view><view><text>{{topCity}}</text><text>覆盖最多</text></view></view></view>
-  <view class="section-head"><view>城市分布</view><text>点击查看联系人</text></view><view class="city-list" wx:if="{{cities.length}}"><view class="city-row" wx:for="{{cities}}" wx:key="name" data-city="{{item.name}}" bindtap="contacts"><view class="city-mark">●</view><view class="city-name">{{item.name}}</view><view class="bar"><view style="width: {{item.percent}}%;"></view></view><view class="count">{{item.count}} 人</view><text class="arrow">›</text></view></view><view class="empty" wx:else>暂无城市数据，新增联系人后将在这里展示</view>
+
+  <view class="map-summary">
+    <view class="summary-title">人脉地区分布</view>
+    <view class="summary-numbers">
+      <view><text>{{total}}</text><text>联系人</text></view>
+      <view><text>{{citySelected ? cityContacts.length : regions.length}}</text><text>{{levelTitle}}</text></view>
+    </view>
+  </view>
+
+  <view class="globe-shell" hidden="{{level !== 'country'}}">
+    <canvas id="globe-canvas" type="webgl" class="globe-canvas" bindtouchstart="globeTouchStart" bindtouchmove="globeTouchMove" bindtouchend="globeTouchEnd"></canvas>
+    <view wx:if="{{globeError}}" class="globe-caption">{{globeError}}</view>
+    <button class="globe-reset" bindtap="resetGlobe">回到地球</button>
+  </view>
+
+  <block wx:if="{{level !== 'country'}}">
+    <map wx:if="{{center && includePoints.length}}" class="region-map" latitude="{{center.latitude}}" longitude="{{center.longitude}}" scale="{{mapScale}}" markers="{{markers}}" polygons="{{provincePolygons}}" include-points="{{includePoints}}" bindmarkertap="mapMarkerTap" show-location="{{false}}" enable-zoom="{{true}}" enable-scroll="{{true}}" show-compass="{{true}}" />
+    <view wx:else class="map-placeholder">{{mapError || '正在定位地区'}}</view>
+  </block>
+
+  <view class="path">
+    <button class="path-item" bindtap="backToWorld">全球</button>
+    <block wx:if="{{level !== 'country'}}">
+      <text class="separator">›</text>
+      <button class="path-item" bindtap="backToCountry" disabled="{{level === 'province'}}">{{country || '未设置国家'}}</button>
+    </block>
+    <block wx:if="{{level === 'city'}}">
+      <text class="separator">›</text>
+      <button wx:if="{{citySelected}}" class="path-item" bindtap="backToCityList">{{province || '未设置省份'}}</button>
+      <text wx:else class="path-current">{{province || '未设置省份'}}</text>
+      <block wx:if="{{citySelected}}">
+        <text class="separator">›</text>
+        <text class="path-current">{{city || '未设置城市'}}</text>
+      </block>
+    </block>
+  </view>
+
+  <view class="section-head">
+    <view>{{levelTitle}}</view>
+    <text>{{citySelected ? filteredContacts.length + ' 位联系人' : total + ' 人'}}</text>
+  </view>
+  <button wx:if="{{citySelected}}" class="directory-action" bindtap="viewCityContacts">在联系人页查看</button>
+
+  <view class="search-bar">
+    <input class="search-input" type="text" placeholder="搜索{{levelTitle}}…" value="{{keyword}}" bindinput="onKeyword" confirm-type="search" />
+    <text wx:if="{{keyword}}" class="search-clear" bindtap="clearKeyword">×</text>
+  </view>
+
+  <picker wx:if="{{regions.length && !citySelected}}" class="region-picker" mode="selector" range="{{regions}}" range-key="pickerLabel" bindchange="selectFromPicker">
+    <view>选择{{levelTitle}} <text>⌄</text></view>
+  </picker>
+
+  <view wx:if="{{!loading && !error && !citySelected && filteredRegions.length}}" class="region-list">
+    <button class="region-row" wx:for="{{filteredRegions}}" wx:key="name" data-name="{{item.name}}" bindtap="selectRegion">
+      <view class="region-main">
+        <view class="region-left">
+          <view class="avatar-stack" wx:if="{{item.sample.length}}">
+            <view class="mini-avatar" wx:for="{{item.sample}}" wx:for-item="sample" wx:key="id" style="background-color: {{sample.color}};">{{sample.initial}}</view>
+          </view>
+          <text class="region-name">{{item.label}}</text>
+        </view>
+        <text class="region-count">{{item.count}} 人</text>
+      </view>
+      <progress class="region-bar" percent="{{item.percent}}" stroke-width="4" activeColor="#16a889" backgroundColor="#e8eef0" />
+      <text class="region-arrow">›</text>
+    </button>
+  </view>
+
+  <view wx:if="{{!loading && !error && citySelected && filteredContacts.length}}" class="contact-list">
+    <view class="contact-row" wx:for="{{filteredContacts}}" wx:key="id" data-id="{{item.id}}" bindtap="openContact">
+      <view class="avatar" style="background-color: {{item.color}};">{{item.initial}}</view>
+      <view class="contact-info">
+        <view class="contact-name">{{item.name}}</view>
+        <view class="contact-meta">{{item.organization}}<text wx:if="{{item.position}}"> · {{item.position}}</text></view>
+        <view class="contact-tags" wx:if="{{item.tags.length}}">
+          <text class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+        </view>
+      </view>
+      <text class="contact-location-action" catchtap="setContactLocation" data-id="{{item.id}}">设置位置</text>
+      <text class="region-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{loading}}">正在加载地区数据</view>
+  <view class="empty" wx:elif="{{error}}"><text>{{error}}</text><button class="retry" bindtap="load">重试</button></view>
+  <view class="empty" wx:elif="{{citySelected ? !filteredContacts.length : !filteredRegions.length}}">暂无匹配数据</view>
 </view>

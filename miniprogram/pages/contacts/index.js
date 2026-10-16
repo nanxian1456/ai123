@@ -10,8 +10,19 @@ const directoryGroups = (contacts) => {
     return LETTERS.filter(letter => groups.has(letter)).map(letter => ({ letter, contacts: groups.get(letter) || [] }));
 };
 Page({
-    data: { keyword: "", city: "", selectedTag: "", contacts: [], groups: [], tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
-    onShow() { const city = wx.getStorageSync("contact-filter-city") || this.data.city; wx.removeStorageSync("contact-filter-city"); this.setData({ city }); this.loadTags(); this.loadContacts(); },
+    data: { keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", contacts: [], groups: [], tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
+    onShow() {
+        const region = wx.getStorageSync("contact-filter-region");
+        const city = wx.getStorageSync("contact-filter-city");
+        wx.removeStorageSync("contact-filter-region");
+        wx.removeStorageSync("contact-filter-city");
+        if (region)
+            this.setData({ ...region, regionFilter: true, filterLabel: [region.country || "未设置国家", region.province || "未设置省份", region.city || "未设置城市"].join(" / ") });
+        else if (city)
+            this.setData({ country: "", province: "", city, regionFilter: false, filterLabel: `城市：${city}` });
+        this.loadTags();
+        this.loadContacts();
+    },
     async loadTags() { try {
         this.setData({ tags: (0, contact_tags_1.filterTags)(await (0, api_1.request)("/tags")) });
     }
@@ -20,7 +31,9 @@ Page({
     } },
     async loadContacts() { try {
         const params = [`keyword=${encodeURIComponent(this.data.keyword)}`];
-        if (this.data.city)
+        if (this.data.regionFilter)
+            params.push(`country=${encodeURIComponent(this.data.country)}`, `province=${encodeURIComponent(this.data.province)}`, `city=${encodeURIComponent(this.data.city)}`);
+        else if (this.data.city)
             params.push(`city=${encodeURIComponent(this.data.city)}`);
         if (this.data.selectedTag)
             params.push(`tag=${encodeURIComponent(this.data.selectedTag)}`);
@@ -62,7 +75,7 @@ Page({
                 }
             } });
     },
-    clearCity() { this.setData({ city: "" }); this.loadContacts(); },
+    clearCity() { this.setData({ country: "", province: "", city: "", regionFilter: false, filterLabel: "" }); this.loadContacts(); },
     jumpLetter(event) { const letter = event.currentTarget.dataset.letter; if (!this.data.letters.find(item => item.letter === letter && item.available))
         return; this.setData({ scrollIntoView: "", activeLetter: letter }); setTimeout(() => this.setData({ scrollIntoView: `letter-${letter}` }), 0); },
     add() { wx.navigateTo({ url: "/pages/contact-form/index" }); },

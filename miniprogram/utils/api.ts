@@ -257,6 +257,10 @@ export function request<T = any>(
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
     );
+  if (path === "/maps/locations")
+    return ensureSession().then((token) =>
+      backendRequest(path, method, data, token),
+    );
   if (path === "/me/import-code")
     return ensureSession().then((token) =>
       backendRequest("/me", "GET", undefined, token).then(

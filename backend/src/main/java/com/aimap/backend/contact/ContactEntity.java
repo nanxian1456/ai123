@@ -30,7 +30,11 @@ public class ContactEntity {
     @Column(nullable = false, length = 100) private String organization = "";
     @Column(nullable = false, length = 50) private String position = "";
     @Column(nullable = false, length = 50) private String city = "";
+    @Column(length = 200) private String address = "";
+    private Double latitude;
+    private Double longitude;
     @Column(nullable = false, length = 50) private String province = "";
+    @Column(nullable = false, length = 50) private String country = "";
     @Column(nullable = false, length = 30) private String phone = "";
     @Column(nullable = false, length = 100) private String email = "";
     @Column(nullable = false, length = 500) private String note = "";
@@ -57,8 +61,16 @@ public class ContactEntity {
     public void setPosition(String value) { position = value; }
     public String getCity() { return city; }
     public void setCity(String value) { city = value; }
+    public String getAddress() { return address; }
+    public void setAddress(String value) { address = value; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double value) { latitude = value; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double value) { longitude = value; }
     public String getProvince() { return province; }
     public void setProvince(String value) { province = value; }
+    public String getCountry() { return country; }
+    public void setCountry(String value) { country = value; }
     public String getPhone() { return phone; }
     public void setPhone(String value) { phone = value; }
     public String getEmail() { return email; }
