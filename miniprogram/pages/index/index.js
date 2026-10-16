@@ -8,12 +8,11 @@ Page({
     request("/dashboard").then((dashboard) => {
       dashboard.recentContacts = (dashboard.recentContacts || []).map((contact) => ({ ...contact, initial: contact.name ? contact.name.charAt(0) : "?" }));
       this.setData({ dashboard, loading: false });
-    }).catch(() => this.setData({ loading: false, loadError: "登录或后端连接失败" }));
+    }).catch((error) => this.setData({ loading: false, loadError: error.message || "本机数据读取失败" }));
   },
   goAdd() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
   goContacts() { wx.switchTab({ url: "/pages/contacts/index" }); },
   goMap() { wx.switchTab({ url: "/pages/map/index" }); },
-  goKnowledgeGraph() { wx.switchTab({ url: "/pages/knowledge-graph/index" }); },
   goAi() { wx.navigateTo({ url: "/pages/contact-form/index?mode=ai" }); },
   openContact(event) { wx.navigateTo({ url: `/pages/contact-detail/index?id=${event.currentTarget.dataset.id}` }); }
 });

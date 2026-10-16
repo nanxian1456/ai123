@@ -1,13 +1,13 @@
 <view class="page">
-  <view class="card friend-card" wx:if="{{profile}}">
-    <view class="friend-title">我的导入码</view>
-    <text class="friend-description">朋友可在新增联系人页面输入此码找到你</text>
-    <view class="import-code" bindtap="copyContactCode">{{profile.contactCode}}</view>
-    <view class="copy-tip">点击导入码即可复制</view>
+  <view class="card friend-card">
+    <view class="friend-title">我的八位导入码</view>
+    <text class="friend-description">把导入码发给朋友，对方可导入你主动公开的资料。</text>
+    <view class="import-code">{{contactCode || '加载中'}}</view>
+    <button class="copy-button" bindtap="copyCode" disabled="{{!contactCode}}">复制导入码</button>
   </view>
-  <view class="card permission-note" wx:if="{{profile}}">
-    <view>朋友可以看到什么</view>
-    <text>朋友只能导入你在“个人隐私”页面主动公开的资料，未公开资料不会提供。</text>
+  <view class="card permission-note">
+    <view>公开资料</view>
+    <text>先在个人隐私中公开昵称，再选择其他可公开字段。联系人、关系、电话和邮箱始终只保存在本机。</text>
+    <button class="copy-button" bindtap="publish" loading="{{publishing}}" disabled="{{publishing || !profile || !profile.visibility.nickname}}">更新公开资料</button>
   </view>
-  <view class="empty" wx:if="{{!profile}}">正在加载朋友权限</view>
 </view>

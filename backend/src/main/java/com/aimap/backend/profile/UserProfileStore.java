@@ -1,6 +1,8 @@
 package com.aimap.backend.profile;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -8,7 +10,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.security.SecureRandom;
 
-@Component
+@Service
 public class UserProfileStore {
     private final UserProfileRepository repository;
     private final Map<String, UserProfile> testProfiles;
@@ -17,7 +19,13 @@ public class UserProfileStore {
     public UserProfileStore(UserProfileRepository repository) { this.repository = repository; this.testProfiles = new ConcurrentHashMap<>(); }
     public UserProfileStore() { this.repository = null; this.testProfiles = new ConcurrentHashMap<>(); }
 
+    public UserProfile findExisting(String ownerId) {
+        if (repository == null) return testProfiles.get(ownerId);
+        return repository.findById(ownerId).map(this::toProfile).orElse(null);
+    }
+
     @Transactional
+    @CacheEvict(cacheNames = "profiles", allEntries = true)
     public UserProfile ensure(String ownerId) {
         if (repository == null) return testProfiles.computeIfAbsent(ownerId, id -> new UserProfile(id, "", "", "", "", "", "male-1", "", ProfileVisibility.privateByDefault(), false, "123AB456"));
         UserProfileEntity entity = repository.findById(ownerId).orElseGet(() -> new UserProfileEntity(ownerId));
@@ -26,6 +34,7 @@ public class UserProfileStore {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profiles", allEntries = true)
     public UserProfile update(String ownerId, UserProfileRequest request) {
         if (repository == null) {
             UserProfile existing = ensure(ownerId);
@@ -43,6 +52,7 @@ public class UserProfileStore {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profiles", allEntries = true)
     public UserProfile updateAvatar(String ownerId, String avatarUrl) {
         if (repository == null) {
             UserProfile existing = ensure(ownerId);
@@ -54,6 +64,7 @@ public class UserProfileStore {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "profiles", allEntries = true)
     public UserProfile updateVisibility(String ownerId, ProfileVisibility visibility) {
         if (repository == null) {
             UserProfile existing = ensure(ownerId);
@@ -67,6 +78,7 @@ public class UserProfileStore {
         return toProfile(repository.save(entity));
     }
 
+    @Cacheable(cacheNames = "profiles", key = "#contactCode")
     public UserProfile findByContactCode(String contactCode) {
         if (repository == null) return null;
         return repository.findByContactCode(contactCode).map(this::toProfile).orElse(null);

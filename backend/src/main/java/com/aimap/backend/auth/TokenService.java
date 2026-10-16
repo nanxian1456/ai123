@@ -21,9 +21,13 @@ public class TokenService {
     }
 
     public String issue(String openId) {
-        long expiresAt = Instant.now().plusSeconds(properties.tokenTtlHours() * 3600).getEpochSecond();
+        long expiresAt = Instant.now().plusSeconds(expiresInSeconds()).getEpochSecond();
         String payload = Base64.getUrlEncoder().withoutPadding().encodeToString((openId + "." + expiresAt).getBytes(StandardCharsets.UTF_8));
         return payload + "." + sign(payload);
+    }
+
+    public long expiresInSeconds() {
+        return Math.multiplyExact(properties.tokenTtlHours(), 3600);
     }
 
     public String verify(String token) {

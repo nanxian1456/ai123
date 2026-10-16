@@ -1,9 +1,19 @@
-const { request, showError } = require("../../utils/api");
+const { request, syncPublishedProfile, showError } = require("../../utils/api");
 
 Page({
-  data: { profile: null },
-  onShow() { request("/me").then((profile) => this.setData({ profile })).catch(showError); },
-  copyContactCode() {
-    if (this.data.profile && this.data.profile.contactCode) wx.setClipboardData({ data: this.data.profile.contactCode });
+  data: { contactCode: "", profile: null, publishing: false },
+  onShow() {
+    Promise.all([request("/me/import-code"), request("/me")])
+      .then(([contactCode, profile]) => this.setData({ contactCode, profile })).catch(showError);
+  },
+  copyCode() {
+    if (this.data.contactCode) wx.setClipboardData({ data: this.data.contactCode });
+  },
+  publish() {
+    if (this.data.publishing || !this.data.profile) return;
+    this.setData({ publishing: true });
+    syncPublishedProfile(this.data.profile)
+      .then(() => wx.showToast({ title: "公开资料已更新", icon: "success" }))
+      .catch(showError).finally(() => this.setData({ publishing: false }));
   }
 });

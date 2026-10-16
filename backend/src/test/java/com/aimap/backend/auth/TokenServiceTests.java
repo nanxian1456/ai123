@@ -13,5 +13,6 @@ class TokenServiceTests {
         String token = tokens.issue("wx-user-one");
         assertEquals("wx-user-one", tokens.verify(token));
         assertNull(tokens.verify(token + "changed"));
+        assertEquals(3600, tokens.expiresInSeconds());
     }
 }

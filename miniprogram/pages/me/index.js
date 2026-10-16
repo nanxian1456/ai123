@@ -5,7 +5,6 @@ Page({
   onShow() { this.load(); },
   load() { request("/me").then((profile) => { if (!profile.profileCompleted) wx.navigateTo({ url: "/pages/profile-setup/index" }); else this.setData({ profile }); }).catch(showError); },
   edit() { wx.navigateTo({ url: "/pages/profile-setup/index?mode=edit" }); },
-  copyContactCode() { if (this.data.profile && this.data.profile.contactCode) wx.setClipboardData({ data: this.data.profile.contactCode }); },
   changeAvatar() {
     if (this.data.uploading) return;
     wx.chooseMedia({ count: 1, mediaType: ["image"], sourceType: ["album", "camera"], success: ({ tempFiles }) => {

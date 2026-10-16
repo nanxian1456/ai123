@@ -6,7 +6,7 @@ Page({
   onShow() { if (this.data.contact) this.loadRelationships(this.data.contact.id); },
   loadContact(id) { request(`/contacts/${id}`).then((contact) => { this.setData({ contact: { ...contact, initial: contact.name ? contact.name.charAt(0) : "?" } }); return this.loadRelationships(id); }).catch(showError); },
   loadRelationships(id) { return request(`/contacts/${id}/relationships`).then((relationships) => this.setData({ relationships })).catch(showError); },
-  graph() { if (this.data.contact) wx.navigateTo({ url: `/pages/graph/index?id=${this.data.contact.id}` }); },
+
   call() { const phone = this.data.contact && this.data.contact.phone; phone ? wx.makePhoneCall({ phoneNumber: phone }) : wx.showToast({ title: "暂无电话号码", icon: "none" }); },
   edit() { if (this.data.contact) wx.navigateTo({ url: `/pages/contact-form/index?id=${this.data.contact.id}` }); },
   addRelationship() { if (this.data.contact) wx.navigateTo({ url: `/pages/relationship-form/index?sourceId=${this.data.contact.id}` }); },

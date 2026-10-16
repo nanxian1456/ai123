@@ -1,5 +1,6 @@
 package com.aimap.backend.contact;
 
+import com.aimap.backend.ai.AiExtractionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,17 +22,17 @@ import static org.mockito.Mockito.mock;
         "demo-data.enabled=false"
 })
 class RegionDrilldownTests {
-    @Autowired ContactStore store;
+    @Autowired ContactService contacts;
     @Autowired InsightController insights;
     @Autowired ContactController directory;
 
     @Test
     void groupsByFullRegionAndFiltersContactsWithinCurrentOwner() {
-        store.save("owner-map", contact("甲", "南京", "江苏", "中国"));
-        store.save("owner-map", contact("乙", "南京", "广东", "中国"));
-        store.save("owner-map", contact("丙", "南京", "江苏", "中国"));
-        store.save("owner-map", contact("丁", "南京", "", ""));
-        store.save("other-owner", contact("戊", "南京", "江苏", "中国"));
+        contacts.save("owner-map", contact("甲", "南京", "江苏", "中国"));
+        contacts.save("owner-map", contact("乙", "南京", "广东", "中国"));
+        contacts.save("owner-map", contact("丙", "南京", "江苏", "中国"));
+        contacts.save("owner-map", contact("丁", "南京", "", ""));
+        contacts.save("other-owner", contact("戊", "南京", "江苏", "中国"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("currentOpenId", "owner-map");
@@ -66,14 +67,15 @@ class RegionDrilldownTests {
     @Test
     void selectedCityUsesCityCenter() {
         MapGeocoder geocoder = mock(MapGeocoder.class);
-        InsightController controller = new InsightController(store, geocoder);
+        InsightController controller = new InsightController(
+                mock(ContactService.class), mock(InsightService.class), mock(AiExtractionService.class), geocoder);
         assertEquals(Map.of("center", new MapGeocoder.Location(32.06, 118.80), "markers", List.of()),
                 controller.locations("city", "中国", "江苏省", "南京市"));
         org.mockito.Mockito.verifyNoInteractions(geocoder);
     }
 
     private ContactRequest contact(String name, String city, String province, String country) {
-        return new ContactRequest(name, "", "", city, province, country, "", "", "", List.of());
+        return new ContactRequest(name, "", "", city, "", null, null, province, country, "", "", "", List.of());
     }
 
     private Map<String, Object> region(String name, long count) {

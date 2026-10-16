@@ -1,22 +1,51 @@
 const { request, showError } = require("../../utils/api");
+const { findPotentialDuplicates } = require("../../utils/duplicates");
+const { splitTags, suggestedTagOptions } = require("../../utils/contact-tags");
+
+const AI_FIELDS = [
+  { key: "name", label: "姓名" }, { key: "organization", label: "单位" },
+  { key: "position", label: "职务" }, { key: "province", label: "省份" },
+  { key: "city", label: "城市" }, { key: "phone", label: "电话" },
+  { key: "email", label: "邮箱" }, { key: "tags", label: "标签" },
+  { key: "note", label: "备注" }
+];
+const CONTACT_FIELDS = AI_FIELDS.filter((item) => item.key !== "tags").map((item) => item.key);
+const previewFields = (data) => AI_FIELDS.map(({ key, label }) => {
+  const raw = data[key];
+  const value = Array.isArray(raw) ? raw.join("，") : typeof raw === "string" ? raw.trim() : "";
+  return { key, label, value };
+}).filter((item) => item.value);
 
 Page({
   data: {
     id: "",
     form: { name: "", organization: "", position: "", country: "", province: "", city: "", address: "", latitude: null, longitude: null, phone: "", email: "", note: "", tagsText: "" },
-    aiText: "", extracting: false, importCode: "", importing: false
+    aiText: "", aiDraft: null, aiFields: [], extracting: false, saving: false, importCode: "", importing: false,
+    suggestedTags: suggestedTagOptions(""), availableTags: [], selectedTags: []
   },
-  onLoad(query) { if (query.id) this.loadContact(query.id); },
+  onLoad(query) { this.loadTags(); if (query.id) this.loadContact(query.id); },
+  loadTags() {
+    request("/tags").then((tags) => this.setData({ availableTags: tags, suggestedTags: suggestedTagOptions(this.data.form.tagsText, tags) })).catch(showError);
+  },
   loadContact(id) {
     request(`/contacts/${id}`).then((contact) => {
-      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", country: contact.country || "", province: contact.province || "", city: contact.city || "", address: contact.address || "", latitude: contact.latitude ?? null, longitude: contact.longitude ?? null, phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText: (contact.tags || []).join("，") } });
+      const tagsText = (contact.tags || []).join("，");
+      this.setData({ id, form: { name: contact.name || "", organization: contact.organization || "", position: contact.position || "", country: contact.country || "", province: contact.province || "", city: contact.city || "", address: contact.address || "", latitude: contact.latitude ?? null, longitude: contact.longitude ?? null, phone: contact.phone || "", email: contact.email || "", note: contact.note || "", tagsText }, suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags), selectedTags: splitTags(tagsText) });
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     }).catch(showError);
   },
   input(event) {
     const field = event.currentTarget.dataset.field;
-    this.setData({ [`form.${field}`]: event.detail.value });
-    if (field === "address") this.setData({ "form.latitude": null, "form.longitude": null });
+    const updates = { [`form.${field}`]: event.detail.value };
+    if (field === "tagsText") {
+      updates.suggestedTags = suggestedTagOptions(event.detail.value, this.data.availableTags);
+      updates.selectedTags = splitTags(event.detail.value);
+    }
+    if (field === "address") {
+      updates["form.latitude"] = null;
+      updates["form.longitude"] = null;
+    }
+    this.setData(updates);
   },
   chooseLocation() {
     wx.chooseLocation({
@@ -29,34 +58,103 @@ Page({
       }
     });
   },
-  aiInput(event) { this.setData({ aiText: event.detail.value }); },
+  removeTag(event) {
+    const tags = splitTags(this.data.form.tagsText).filter((tag) => tag !== event.currentTarget.dataset.tag);
+    const tagsText = tags.join("，");
+    this.setData({ "form.tagsText": tagsText, selectedTags: tags, suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags) });
+  },
+  toggleSuggestedTag(event) {
+    const tag = event.currentTarget.dataset.tag;
+    const tags = Array.from(new Set(splitTags(this.data.form.tagsText)));
+    const next = tags.includes(tag) ? tags.filter((item) => item !== tag) : [...tags, tag];
+    if (next.length > 10) return wx.showToast({ title: "标签最多10个", icon: "none" });
+    const tagsText = next.join("，");
+    this.setData({ "form.tagsText": tagsText, selectedTags: next, suggestedTags: suggestedTagOptions(tagsText, this.data.availableTags) });
+  },
   importCodeInput(event) { this.setData({ importCode: event.detail.value.toUpperCase() }); },
-  importUser() {
-    const code = this.data.importCode.trim();
-    if (!code) { wx.showToast({ title: "请输入对方导入码", icon: "none" }); return; }
+  importByCode() {
+    if (this.data.importing) return;
+    const code = this.data.importCode.trim().toUpperCase();
+    if (!/^\d{3}[A-Z]{2}\d{3}$/.test(code)) return showError(new Error("请输入八位导入码：3位数字、2位字母、3位数字"));
     this.setData({ importing: true });
-    request(`/users/importable/${encodeURIComponent(code)}`).then((profile) => {
-      this.setData({ "form.name": profile.nickname, "form.organization": profile.organization || "", "form.position": profile.position || "", "form.city": profile.city || "", "form.note": profile.bio || "" });
-      wx.showToast({ title: "已导入对方公开资料", icon: "success" });
+    request(`/users/importable/${code}`).then(profile => {
+      this.setData({
+        "form.name": profile.nickname || "", "form.organization": profile.organization || "",
+        "form.position": profile.position || "", "form.city": profile.city || "",
+        "form.note": profile.bio || ""
+      });
+      wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
+      wx.showToast({ title: "已填入公开资料", icon: "success" });
     }).catch(showError).finally(() => this.setData({ importing: false }));
   },
+  aiInput(event) { this.setData({ aiText: event.detail.value, aiDraft: null, aiFields: [] }); },
+  pasteFromClipboard() {
+    wx.getClipboardData({
+      success: ({ data }) => {
+        const text = String(data || "");
+        if (!text.trim()) { wx.showToast({ title: "剪贴板没有文字", icon: "none" }); return; }
+        this.setData({ aiText: text.slice(0, 4000), aiDraft: null, aiFields: [] });
+        wx.showToast({ title: text.length > 4000 ? "已粘贴前4000字" : "已粘贴", icon: "none" });
+      },
+      fail: () => wx.showToast({ title: "读取剪贴板失败", icon: "none" })
+    });
+  },
+  clearAiText() { this.setData({ aiText: "", aiDraft: null, aiFields: [] }); },
+  openBatch() { wx.navigateTo({ url: "/pages/contacts-batch/index" }); },
   extract() {
-    if (!this.data.aiText.trim()) { wx.showToast({ title: "请先粘贴人物介绍", icon: "none" }); return; }
-    this.setData({ extracting: true });
-    request("/ai/extract", "POST", { text: this.data.aiText }).then((result) => {
+    if (this.data.extracting) return;
+    const text = this.data.aiText.trim();
+    if (!text) { wx.showToast({ title: "请先粘贴人物介绍", icon: "none" }); return; }
+    this.setData({ extracting: true, aiDraft: null, aiFields: [] });
+    request("/ai/extract", "POST", { text }).then((result) => {
+      if (this.data.aiText.trim() !== text) return;
       const data = result.data || {};
-      this.setData({ "form.organization": data.organization || "", "form.position": data.position || "", "form.city": data.city || "", "form.tagsText": Array.isArray(data.tags) ? data.tags.join("，") : "" });
-      wx.showToast({ title: "已填入可识别字段", icon: "success" });
+      const aiFields = previewFields(data);
+      if (!aiFields.length) { wx.showToast({ title: "未识别到联系人信息", icon: "none" }); return; }
+      this.setData({ aiDraft: data, aiFields });
     }).catch(showError).finally(() => this.setData({ extracting: false }));
   },
+  applyAiDraft() {
+    const data = this.data.aiDraft;
+    if (!data) return;
+    const updates = {};
+    CONTACT_FIELDS.forEach((field) => {
+      const value = data[field];
+      if (typeof value === "string" && value.trim() && !String(this.data.form[field] || "").trim()) {
+        updates[`form.${field}`] = value.trim();
+      }
+    });
+    const existingTags = splitTags(this.data.form.tagsText || "");
+    const extractedTags = Array.isArray(data.tags) ? data.tags.map((tag) => tag.trim()).filter(Boolean) : [];
+    const tags = Array.from(new Set([...existingTags, ...extractedTags])).slice(0, 10);
+    if (tags.length > existingTags.length) {
+      updates["form.tagsText"] = tags.join("，");
+      updates.suggestedTags = suggestedTagOptions(updates["form.tagsText"], this.data.availableTags);
+      updates.selectedTags = tags;
+    }
+    if (!Object.keys(updates).length) { wx.showToast({ title: "已有资料未被覆盖", icon: "none" }); return; }
+    this.setData(updates);
+    wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
+    wx.showToast({ title: "已填入空白字段", icon: "success" });
+  },
   save() {
+    if (this.data.saving) return;
     const form = this.data.form;
     if (!form.name.trim()) { wx.showToast({ title: "请填写姓名", icon: "none" }); return; }
-    const payload = { ...form, tags: form.tagsText.split(/[，,]/).map((item) => item.trim()).filter(Boolean) };
+    const tags = Array.from(new Set(splitTags(form.tagsText)));
+    if (tags.length > 10 || tags.some((tag) => tag.length > 20)) { wx.showToast({ title: "标签最多10个，每个不超过20字", icon: "none" }); return; }
+    const payload = { ...form, name: form.name.trim(), tags };
     delete payload.tagsText;
-    request(this.data.id ? `/contacts/${this.data.id}` : "/contacts", this.data.id ? "PATCH" : "POST", payload).then(() => {
+    this.setData({ saving: true });
+    const saveContact = () => request(this.data.id ? `/contacts/${this.data.id}` : "/contacts", this.data.id ? "PATCH" : "POST", payload);
+    request("/contacts").then(contacts => {
+      const duplicates = findPotentialDuplicates(contacts, payload, this.data.id);
+      if (!duplicates.length) return saveContact();
+      return new Promise((resolve, reject) => wx.showModal({ title: "可能重复的联系人", content: `本机已有 ${duplicates.map(item => item.name).join("、")}。仍要保存吗？`, confirmText: "仍要保存", success: result => result.confirm ? saveContact().then(resolve, reject) : resolve(false), fail: reject }));
+    }).then(saved => {
+      if (saved === false) { this.setData({ saving: false }); return; }
       wx.showToast({ title: "已保存", icon: "success" });
       setTimeout(() => wx.navigateBack(), 500);
-    }).catch(showError);
+    }).catch((error) => { this.setData({ saving: false }); showError(error); });
   }
 });

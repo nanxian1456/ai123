@@ -12,12 +12,11 @@ Page({
       const dashboard = await request<Dashboard>("/dashboard");
       dashboard.recentContacts = (dashboard.recentContacts || []).map(contact => ({ ...contact, initial: contact.name.charAt(0) }));
       this.setData({ dashboard, loading: false });
-    } catch { this.setData({ loading: false, loadError: "后端未连接，请先启动 Java 服务" }); }
+    } catch (error) { this.setData({ loading: false, loadError: error instanceof Error ? error.message : "本机数据读取失败" }); }
   },
   goAdd() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
   goContacts() { wx.switchTab({ url: "/pages/contacts/index" }); },
   goMap() { wx.switchTab({ url: "/pages/map/index" }); },
-  goKnowledgeGraph() { wx.switchTab({ url: "/pages/knowledge-graph/index" }); },
   goAi() { wx.navigateTo({ url: "/pages/contact-form/index?mode=ai" }); },
   openContact(event: any) { wx.navigateTo({ url: `/pages/contact-detail/index?id=${event.currentTarget.dataset.id}` }); }
 });

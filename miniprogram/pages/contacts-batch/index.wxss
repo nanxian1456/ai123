@@ -1,0 +1,10 @@
+.batch-page { padding-bottom: 48rpx; }
+.format { color: #546a7e; font-size: 25rpx; line-height: 1.5; margin: 14rpx 0; }
+.batch-page textarea { box-sizing: border-box; width: 100%; height: 300rpx; padding: 18rpx; border: 1rpx solid #cad8e3; border-radius: 6rpx; background: #fff; font-size: 26rpx; line-height: 1.6; }
+.actions { display: flex; gap: 14rpx; margin: 16rpx 0 28rpx; }
+.actions button { flex: 1; margin: 0; border-radius: 6rpx; font-size: 27rpx; background: #e8f2fa; color: #176b9d; }
+.entry { display: flex; align-items: center; gap: 12rpx; min-height: 92rpx; padding: 12rpx 0; border-bottom: 1rpx solid #dce5ed; }
+.entry-info { min-width: 0; flex: 1; font-size: 28rpx; color: #263c4e; }
+.entry-info text { font-size: 23rpx; color: #a34b3f; }
+.entry-info > text { display: block; margin-top: 6rpx; color: #66798a; }
+.save { margin-top: 24rpx; border-radius: 6rpx; }

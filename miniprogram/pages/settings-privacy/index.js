@@ -1,7 +1,7 @@
 const { request, showError } = require("../../utils/api");
 
 const VISIBILITY_FIELDS = [
-  { field: "avatar", label: "头像" }, { field: "nickname", label: "昵称" },
+  { field: "nickname", label: "昵称" },
   { field: "organization", label: "单位" }, { field: "position", label: "职务" },
   { field: "city", label: "城市" }, { field: "bio", label: "个人简介" }
 ];
