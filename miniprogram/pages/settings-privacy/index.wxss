@@ -5,3 +5,11 @@
 .visibility-row > view > text:first-child { display:block; color:#263c4e; font-size:29rpx; font-weight:600; }
 .visibility-row > view > text:last-child { display:block; margin-top:6rpx; color:#8a98a5; font-size:20rpx; }
 .visibility-row switch { transform:scale(.82); transform-origin:right center; }
+.consent-card { padding:0 25rpx; }
+.consent-row { display:flex; align-items:center; justify-content:space-between; gap:20rpx; min-height:96rpx; border-bottom:1rpx solid #edf1f3; color:#263c4e; font-size:28rpx; }
+.consent-row:last-child { border-bottom:0; }
+.consent-row > view > text { display:block; }
+.consent-sub { margin-top:6rpx; color:#8a98a5; font-size:21rpx; }
+.consent-row.danger { color:#d92d20; }
+.chevron { color:#a4b0bc; font-size:34rpx; }
+.consent-button { margin:0; color:#d92d20; background:#fff1f0; font-size:24rpx; }

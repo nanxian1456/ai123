@@ -16,27 +16,46 @@
 - 联系人：新增、详情、搜索、城市筛选、删除接口。
 - 联系人维护：编辑资料、标签筛选、删除联系人及关联关系。
 - 人脉地图：按联系人工作城市聚合展示。
-- 人物关系：新增、删除关系，围绕联系人展示一层关系节点和关系类型。
+- 人物关系：在联系人详情中新增、查看和删除关系列表。
+- 图谱：标签树与关系网、分类管理、搜索定位、筛选、关联排行、最短路径和 N 度隔离。
 - 本地数据：个人资料、头像、联系人、标签和关系保存在微信小程序的本机存储中，按微信账号隔离。
+  大数据按 200KiB 分片，全部新分片写入成功后才提交索引；旧单键数据及早期开发版的联系人、关系数组分片均可读取，并在下次成功保存时迁移。仍受微信总存储容量约束，原子替换需要暂存新旧两代数据，空间不足时保留旧数据并提示导出备份。
 - 八位导入码：每个微信账号有固定的 `3位数字+2位字母+3位数字` 导入码；用户公开昵称后，其他用户可按码获取其主动公开的最小资料并保存为本机联系人。未发布的旧服务器资料不可导入。
 - AI 信息预填：通过 DeepSeek 的兼容接口提取联系人结构化信息。
 - 后端基础能力：统一参数校验和异常响应、请求追踪日志、缓存、分页及 API 限流。
+
+## 图谱使用说明
+
+构建后在微信开发者工具重新编译，从底部“图谱”进入，顶部切换“标签树”和“关系网”。已有账号可离线读取本机图谱；首次登录和旧数据迁移仍需要后端。
+
+- **标签树**：以本人为中心展示分类。点击分类查看该分类及子分类中的联系人；双击分类聚焦分支，点击“显示全部”或中心节点退出聚焦。联系人在分类抽屉中列出，不作为标签树的画布节点。
+- **分类管理**：右上角“+ 分类”新建顶层分类；分类抽屉可新建子分类、重命名和删除。“管理”中可添加、隐藏或恢复推荐分类，画布中的推荐节点也可双击添加。删除分类会同时移除子分类和相应归类，联系人及其关系保留。名称最多 20 字，最多 1000 个分类、16 层。
+- **分类录入**：从分类抽屉点击“在此分类添加联系人”，表单会显示所属分类，保存后归入该分类；普通编辑保留原归类。“未分类”为自动汇总，从中新增的联系人仍无分类。分类和联系人标签分别维护，已有标签不会自动变成树分类。已有联系人可在编辑页多选分类，再点一次取消归类，保存后同步到标签树。
+- **关系网**：联系人、单位、城市分别生成节点；人物关系和单位、城市归属生成连线。点击节点或关系查看详情，点击联系人详情里的“添加关系”维护关系。拖动节点调整位置，拖动画布空白处平移，双指缩放。
+- **搜索和筛选**：标签树可搜索联系人、分类，关系网可搜索联系人、单位和城市；点击结果定位，唯一结果可按键盘搜索键直接定位。“筛选”控制节点类型和关系类型的显示。
+- **排行和工具**：“排行”按节点连线数展示前 10 名，包含联系人、单位和城市。打开“工具”可适配窗口、重置视图、暂停布局、隔离 1–3 度节点；开启“最短路径”后关闭抽屉，依次点击起点与终点。排行、隔离和最短路径按完整关系网计算，显示筛选不会重新计算它们；路径可能经过共同单位或城市。
+
+分类树、联系人归类和隐藏推荐项沿用现有账号隔离、原子分片存储，并包含在加密备份中。不要用压缩包中的旧存储实现覆盖当前实现，也无需接入演示或清空数据模块。自动化验证范围及真机待测项见下方“测试”和[真机测试清单](docs/真机测试清单.md)。
 
 ## 启动后端
 
 在 `backend` 目录运行：
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 也可以运行 `.\start.ps1 -Profile dev`，或用 `.\start.ps1 -Profile dev -Background` 在后台启动。后台启动日志写入 `backend/logs/`，脚本只表示进程已发起，需检查日志或访问 `http://127.0.0.1:8080/actuator/health` 确认就绪。
 
 服务启动后访问地址为 `http://127.0.0.1:8080`。后端用于微信登录、首次导出旧数据、AI 提取和导入码公开资料交换；既有 H2 数据不会自动删除。
 
-后端配置分为 `application.properties`（公共参数）、`application-dev.properties`（本机 H2）和 `application-prod.properties`（PostgreSQL）。默认使用 `dev`，上述命令不变；开发环境会读取 Git 忽略的 `backend/src/main/resources/application-local.properties`，保留现有本机密钥配置。不要把真实密钥写入已跟踪的配置文件。部署时显式选择 `prod`，生产环境不会导入 `application-local.properties`，必须通过环境变量提供密钥和数据库连接。
+后端配置分为公共、开发和生产三个文件。直接运行应用必须显式选择 `dev` 或 `prod`，遗漏或混用环境会拒绝启动；Maven 开发启动器沿用本机 `dev` 默认值。开发环境优先读取外部文件 `backend/config/application-local.properties`（在仓库根目录或 `backend` 目录启动均可），并兼容现有 `backend/application-local.properties` 和 `backend/src/main/resources/application-local.properties`；这些文件均不得提交，Maven 明确排除源码资源目录中的本机密钥文件。推荐通过环境变量配置密钥。生产环境不导入本机密钥，要求 PostgreSQL、必要凭证和 HTTPS 公开地址。
 
-生产环境先准备 PostgreSQL 数据库及独立账号，并设置 `SPRING_DATASOURCE_URL`（`jdbc:postgresql://主机:5432/数据库名`）、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、微信登录密钥、`AUTH_TOKEN_SECRET` 和 `APP_PUBLIC_BASE_URL`，再运行 `.\start.ps1 -Profile prod`。生产配置会自动创建/更新当前表结构，但**不会搬迁 H2 中的账号资料、固定导入码或公开资料**；已有用户切换数据库前应备份并安排数据迁移，不能直接指向空库上线。生产日志默认写入 `backend/logs/ai-network.log`，按 10MB 滚动并保留 30 份。`/actuator/health` 和 `/actuator/info` 可用于基础监控；未开放无认证的 metrics HTTP 端点。
+生产数据库使用 Flyway 版本化迁移，Hibernate 仅校验结构。空库自动执行 `db/migration/V1__initial_schema.sql`；已有库不会自动标记基线或修改已有表，需备份并核对结构后显式确认基线。H2 到 PostgreSQL 的真实数据迁移需在副本演练后执行，此次代码修复没有操作本机或生产数据。构建后运行 `python scripts/verify-backend-artifact.py`，检查 jar 未包含本机密钥文件或明文密钥属性。
+
+AI 默认每账号每天 20 次、单服务进程每天 200 次，可通过 `AI_ACCOUNT_DAILY_LIMIT` 和 `AI_GLOBAL_DAILY_LIMIT` 调整。当前计数在内存中，重启会重置，多副本部署须先改用共享持久化配额。开发环境默认忽略转发请求头；生产环境沿用 Tomcat 的 `native` 策略，只应在代理移除客户端伪造头、后端仅接收可信代理流量时使用，并按实际地址限制 `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES`。直接暴露后端时设置 `FORWARD_HEADERS_STRATEGY=none`。旧联系人、关系、个人资料和头像上传写接口默认禁用；旧数据只读迁移、导入码、公开资料同步及本人头像迁移下载保留。
+
+生产环境先准备 PostgreSQL 数据库及独立账号，并设置 `SPRING_DATASOURCE_URL`（`jdbc:postgresql://主机:5432/数据库名`）、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、微信登录密钥、`AUTH_TOKEN_SECRET` 和 `APP_PUBLIC_BASE_URL`，再运行 `.\start.ps1 -Profile prod`。生产配置使用上述 Flyway 迁移和 Hibernate 结构校验，但**不会搬迁 H2 中的账号资料、固定导入码或公开资料**；已有用户切换数据库前应备份并安排数据迁移，不能直接指向空库上线。生产日志默认写入 `backend/logs/ai-network.log`，按 10MB 滚动并保留 30 份。`/actuator/health` 和 `/actuator/info` 可用于基础监控；未开放无认证的 metrics HTTP 端点。
 
 ## 微信登录与用户隔离
 
@@ -75,14 +94,25 @@ $env:APP_PUBLIC_BASE_URL = "https://你的后端域名"
 
 同时将根目录 `project.config.json` 的 `appid` 替换为同一个小程序 AppID，在微信公众平台配置生产后端的 HTTPS 请求合法域名。未配置 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 时，登录接口会返回“微信登录尚未配置 AppID 和 Secret”，不会回退为共享演示用户。
 
+## 隐私合规
+
+- **协议与同意：** 登录页须勾选同意《用户协议》《隐私政策》后才能登录；同意记录按版本保存在本机。正文在 `miniprogram/utils/legal.js`，由 `pages/legal` 展示。正文有实质变化时修改 `miniprogram/utils/consent.ts` 中的 `LEGAL_VERSION`，所有用户下次从进入页进入时会被引导重新确认；确认后优先复用本机账号，已有资料可离线进入，仅缺少有效身份时才重新联网登录。
+- **上线前必须完成：** 把 `utils/legal.js` 中所有【】占位内容（运营者名称、联系邮箱、服务器所在地、日志保留期限）替换为真实信息，并由运营方核对正文与实际数据处理一致。
+- **AI 单独同意：** 首次使用智能整理前单独询问是否同意把粘贴的文字发送给 DeepSeek，同意后才发送；可在「设置 › 个人隐私」撤回，撤回后再次使用会重新询问。
+- **微信隐私授权：** 读取剪贴板、选择相册/拍照、选择聊天文件的页面都放置了 `<privacy-popup />`（`components/privacy-popup`），在微信要求授权时展示说明并通过 `open-type="agreePrivacyAuthorization"` 按钮完成授权。新增调用隐私接口的页面必须加入该组件，`tests/privacy-compliance.test.js` 会检查。
+- **微信公众平台配置（需人工完成）：** 在「设置 › 服务内容声明 › 用户隐私保护指引」中如实声明：剪贴板（读取：粘贴人物介绍、批量录入；写入：复制导入码）、选中的照片或视频（更换头像，仅存本机）、摄像头（拍摄头像）、选中的文件（从聊天选择备份文件恢复）。如实填写开发者处理信息的目的，审核通过后接口才能正常使用。
+- **撤回与删除：** 「设置 › 个人隐私」可查看协议和微信隐私保护指引、撤回 AI 授权、撤回全部同意并退出登录。删除服务器上的账号记录、导入码和早期版本数据目前需用户联系运营方，由运营方处理。
+
 ## 打开小程序
 
 1. 打开微信开发者工具。
-2. 导入项目根目录 `C:\Users\l\Desktop\AI人脉地图初版`。根目录配置会自动将 `miniprogram` 识别为小程序源码目录。
+2. 导入仓库根目录。根目录配置会自动将 `miniprogram` 识别为小程序源码目录。
 3. 在开发者工具中勾选“不校验合法域名、web-view 域名、TLS 版本以及 HTTPS 证书”。
 4. 确认后端已在本机 `8080` 端口运行，然后点击编译。
 
-小程序 API 地址集中在 `miniprogram/utils/api-config.ts` 和同名运行时 `.js` 文件：开发者工具模拟器访问电脑本机 `127.0.0.1`，手机真机调试访问 `DEVICE_DEVELOP_API_BASE_URL`（当前为 `192.168.1.2:8080`）。电脑与手机须连接同一局域网，电脑后端须保持运行；电脑局域网 IP 变化或团队成员换电脑时，两处地址都需更新。手机浏览器可先打开 `http://电脑局域网IP:8080/actuator/health` 检查连通性；若无法访问，还需检查系统防火墙或网络隔离。`trial` 和 `release` 默认留空，上传体验版或正式版前必须在两处填入实际 HTTPS 后端地址，并在微信公众平台配置请求合法域名。真机调试使用局域网 HTTP 仅用于开发，不等于体验版或正式版可登录。
+小程序模拟器默认访问 `127.0.0.1:8080/api`。复制 `miniprogram/utils/api-config.local.example.js` 为同目录的 `api-config.local.js`，填写 `deviceDevelop`（电脑局域网地址）、`trial` 和 `release`（实际 HTTPS 后端地址）。这个文件不提交 Git，但需要随小程序构建一起上传。无需改动 TS 和生成 JS；真机未配置地址时会明确报错。真机须与电脑同网，并在微信公众平台配置体验版和正式版的请求合法域名。局域网 HTTP 只用于开发。
+
+进入页和登录页的背景视频由后端提供，地址与 API 同一主机：登录页使用 `backend/src/main/resources/static/videos/background.mp4`；进入页优先使用同目录的 `entry.mp4`，不存在时改用 `background.mp4`。视频加载失败时页面显示纯色渐变背景，不影响登录。不要在页面里写死 `127.0.0.1` 或第三方临时链接。
 
 ## 主要接口
 
@@ -105,4 +135,16 @@ Set-Location backend
 
 测试完成后，覆盖率报告位于 `backend/target/site/jacoco/index.html`。
 
-新增联系人页面的 AI 识别与保存流程可在项目根目录运行 `node --test tests/contact-form.test.js` 检查。
+首次安装依赖在项目根目录运行 `npm ci`，随后运行 `npm run build`、`npm run check`。已有依赖时直接构建和检查。`npm run check` 包含严格 TypeScript 类型检查和全部前端测试；`npm test` 单独执行前端测试。
+
+有 `.ts` 的模块以 TypeScript 为维护源，修改后由 `npm run build` 生成对应 JavaScript，不要手工维护两份逻辑。图谱页面 `pages/graph/index.js`、绘图算法 `utils/graph.js`、分类逻辑 `utils/categories.js` 等只有 `.js` 的模块直接维护 JavaScript，构建不会覆盖这些文件。不要按旧压缩包说明删除已有 `.ts`。构建还会复制 Worker 所需的加密库，微信开发者工具编译前需完成构建；备份使用后台 Worker 执行密码派生，旧版本不支持时会提示更新，不降低加密强度。GitHub 的 PR 检查会执行严格类型检查、全部前端测试、后端验证、生成文件一致性检查及 jar 密钥检查。
+
+只运行图谱相关测试时执行：
+
+```powershell
+node --test tests/graph.test.js tests/graph-tree.test.js tests/graph-categories.test.js tests/graph-page.test.js tests/contact-form.test.js
+```
+
+图谱测试使用虚构资料和内存存储，不依赖 `startDemo()` 或清空数据模块，不会读写手机上的联系人。它们覆盖绘图算法、布局、分类及推荐项、离线访问、备份兼容、刷新、搜索和新增入口；测试通过不代表画布渲染、手势或真机性能已验证。当前图谱真机项目仍标为待测。
+
+同步外部测试时，仅合入适配当前行为的图谱场景。保留当前公开资料待确认状态、并发数据保护、原子分片和备份等回归测试，不用旧测试文件整体覆盖。

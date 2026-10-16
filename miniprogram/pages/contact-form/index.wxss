@@ -23,3 +23,7 @@
 .selected-tags { display:flex; flex-wrap:wrap; gap:10rpx; padding:14rpx 0 4rpx; }
 .selected-tag { display:flex; align-items:center; gap:10rpx; width:auto; max-width:100%; height:56rpx; margin:0; padding:0 14rpx; border:1rpx solid #cbddec; border-radius:8rpx; background:#eaf4ff; color:#245f92; font-size:23rpx; line-height:56rpx; }
 .selected-tag text { font-size:30rpx; }
+
+.ai-disclosure { margin: 18rpx 0; padding: 18rpx; border-radius: 8rpx; background: #e8f2fa; color: #244b68; font-size: 25rpx; line-height: 1.6; }
+.field-hint { margin-left:12rpx; color:#93a1ae; font-size:22rpx; }
+.category-empty { padding:16rpx 0; color:#93a1ae; font-size:24rpx; }

@@ -103,7 +103,7 @@ public class ProfileController {
         } catch (IOException exception) {
             throw invalidAvatar("头像保存失败");
         }
-        return profiles.updateAvatar(CurrentUser.openId(), publicBaseUrl + "/uploads/avatars/" + filename);
+        return profiles.updateAvatar(CurrentUser.openId(), publicBaseUrl + "/api/me/avatar/" + filename);
     }
 
     private ApiException invalidAvatar(String message) {

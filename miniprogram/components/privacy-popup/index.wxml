@@ -1,0 +1,10 @@
+<view class="privacy-mask" wx:if="{{show}}" catchtouchmove="noop">
+  <view class="privacy-dialog" role="dialog">
+    <view class="privacy-title">用户隐私保护提示</view>
+    <view class="privacy-text">使用该功能需要读取剪贴板、相册/相机或聊天文件。我们只在你主动操作时读取，相关内容默认只保存在本机。请先阅读<text class="privacy-link" bindtap="openContract">{{contractName}}</text>和<text class="privacy-link" bindtap="openPolicy">《隐私政策》</text>。</view>
+    <view class="privacy-actions">
+      <button class="privacy-disagree" bindtap="disagree">拒绝</button>
+      <button id="privacy-agree" class="privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agree">同意</button>
+    </view>
+  </view>
+</view>

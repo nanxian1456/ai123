@@ -30,7 +30,7 @@ public class UserImportController {
         if (profile == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到可导入的用户");
         if (profile.ownerId().equals(CurrentUser.openId())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不能导入自己");
         PublishedProfileEntity published = publishedProfiles.find(profile.ownerId());
-        if (published == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "对方尚未公开导入资料");
+        if (published == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到可导入的用户");
         return new ImportableUserProfile(
                 published.getNickname(), published.getOrganization(), published.getPosition(),
                 published.getCity(), published.getBio()

@@ -1,5 +1,9 @@
 <view class="page">
   <settings-entry />
+  <view class="card setup-card" wx:if="{{needsSetup}}" bindtap="edit">
+    <view><text>个人资料尚未完善</text><text>填写昵称后，导入码和公开资料等功能才能使用</text></view>
+    <view class="setup-action">去完善 ›</view>
+  </view>
   <view class="me-hero" wx:if="{{profile}}">
     <view class="avatar-wrap" bindtap="changeAvatar">
       <image wx:if="{{profile.avatarUrl}}" class="avatar-image" src="{{profile.avatarUrl}}" mode="aspectFill"/>
@@ -19,4 +23,5 @@
     <view><text>个人简介</text><text>{{profile.bio || '未填写'}}</text></view>
   </view>
   <view class="empty" wx:if="{{!profile}}">正在加载个人资料</view>
+  <privacy-popup />
 </view>
