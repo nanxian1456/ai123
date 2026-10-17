@@ -69,7 +69,7 @@
   </view>
 
   <view wx:if="{{!loading && !error && citySelected && filteredContacts.length}}" class="contact-list">
-    <view class="contact-row" wx:for="{{filteredContacts}}" wx:key="id" data-id="{{item.id}}" bindtap="openContact">
+    <view class="contact-row" wx:for="{{filteredContacts}}" wx:key="id" data-id="{{item.id}}" bindtap="focusContact">
       <view class="avatar" style="background-color: {{item.color}};">{{item.initial}}</view>
       <view class="contact-info">
         <view class="contact-name">{{item.name}}</view>

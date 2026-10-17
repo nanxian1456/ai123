@@ -11,6 +11,7 @@ test("map drills from country to city contacts and back", async () => {
   let navigatedTo = "";
   let page;
   const sandbox = {
+    exports: {},
     require(id) {
       if (id.includes("utils/api")) return {
         request: async url => {
@@ -37,7 +38,7 @@ test("map drills from country to city contacts and back", async () => {
         showError: error => { throw error; }
       };
       if (id.includes("world.js")) return [];
-      if (id.includes("jiangsu.json")) return JSON.parse(fs.readFileSync(path.join(__dirname, "../miniprogram/assets/data/jiangsu.json"), "utf8"));
+      if (id.includes("jiangsu.js")) return require(path.join(__dirname, "../miniprogram/assets/data/jiangsu.js"));
       return { createScopedThreejs() {} };
     },
     Page(definition) { page = definition; },
@@ -84,6 +85,17 @@ test("map drills from country to city contacts and back", async () => {
   assert.equal(page.data.center.latitude, 32);
   assert.equal(page.data.markers[0].latitude, 32.1);
   assert.equal(page.data.markers[0].longitude, 118.9);
+  page.mapMarkerTap({ detail: { markerId: 1 } });
+  assert.equal(page.data.center.latitude, 32.1);
+  assert.equal(page.data.center.longitude, 118.9);
+  assert.equal(page.data.mapScale, 16);
+  assert.equal(JSON.stringify(page.data.includePoints), JSON.stringify([{ latitude: 32.1, longitude: 118.9 }]));
+  page.setData({ center: { latitude: 32, longitude: 118 }, mapScale: 11 });
+  page.focusContact({ currentTarget: { dataset: { id: "1" } } });
+  assert.equal(page.data.center.latitude, 32.1);
+  assert.equal(page.data.center.longitude, 118.9);
+  assert.equal(page.data.mapScale, 16);
+  assert.equal(navigatedTo, "");
   assert(requests.some(request => request.pathname === "/maps/locations" &&
     request.searchParams.get("city") === "Nanjing"));
   assert(requests.some(request => request.pathname === "/contacts/directory" &&
