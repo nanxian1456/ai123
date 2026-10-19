@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const api_1 = require("../../utils/api");
 const world = require("../../assets/data/world.js");
-const jiangsuGeo = require("../../assets/data/jiangsu.json");
+const jiangsuGeo = require("../../assets/data/jiangsu.js");
 const { createScopedThreejs } = require("threejs-miniprogram");
 const missingLabel = { country: "未设置国家", province: "未设置省份", city: "未设置城市" };
 const LEVEL_TITLE = { country: "国家 / 地区", province: "省份 / 州", city: "城市" };
@@ -50,8 +50,8 @@ function buildJiangsuPolygons() {
 }
 function countryMaterial(count, max) {
     const ratio = max ? count / max : 0;
-    const color = ratio > 0.66 ? 0x57e0c0 : ratio > 0.32 ? 0x2ea8b7 : count ? 0x5c96a8 : 0x8aa4b7;
-    return new THREE.LineBasicMaterial({ color, transparent: true, opacity: count ? 0.95 : 0.55 });
+    const color = ratio > 0.66 ? 0xffffff : ratio > 0.32 ? 0xb9ddff : count ? 0x75baff : 0x658bb5;
+    return new THREE.LineBasicMaterial({ color, transparent: true, opacity: count ? 0.95 : 0.6 });
 }
 function drawCountry(feature, count, max) {
     const group = new THREE.Group();
@@ -92,8 +92,8 @@ function rebuildMarkers(regions) {
             return;
         const size = 0.028 + 0.052 * region.count / max;
         const group = new THREE.Group();
-        const core = new THREE.Mesh(new THREE.SphereGeometry(size, 14, 14), new THREE.MeshBasicMaterial({ color: 0x70f2d2, transparent: true, opacity: 0.9 }));
-        const halo = new THREE.Mesh(new THREE.SphereGeometry(size * 2.4, 14, 14), new THREE.MeshBasicMaterial({ color: 0x70f2d2, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
+        const core = new THREE.Mesh(new THREE.SphereGeometry(size, 14, 14), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 }));
+        const halo = new THREE.Mesh(new THREE.SphereGeometry(size * 2.4, 14, 14), new THREE.MeshBasicMaterial({ color: 0x2488ff, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false }));
         group.add(core);
         group.add(halo);
         group.position.copy(lonLat(feature.center[0], feature.center[1], 1.045));
@@ -104,7 +104,7 @@ function rebuildMarkers(regions) {
 }
 function createStarfield() {
     const geometry = new THREE.BufferGeometry();
-    const count = 700;
+    const count = 400;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
         const r = 8 + Math.random() * 12;
@@ -114,14 +114,30 @@ function createStarfield() {
         positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
         positions[i * 3 + 2] = r * Math.cos(phi);
     }
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.035, transparent: true, opacity: 0.7 });
+    geometry.addAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({ color: 0xe7f2ff, size: 0.022, transparent: true, opacity: 0.55 });
     scene.add(new THREE.Points(geometry, material));
 }
 function createAtmosphere() {
     const geometry = new THREE.SphereGeometry(1.055, 40, 30);
-    const material = new THREE.MeshBasicMaterial({ color: 0x3ac2d0, transparent: true, opacity: 0.13, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
+    const material = new THREE.MeshBasicMaterial({ color: 0x237aff, transparent: true, opacity: 0.16, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
     globeGroup.add(new THREE.Mesh(geometry, material));
+}
+function createGlobeGrid() {
+    const points = [];
+    for (let lat = -60; lat <= 60; lat += 30) {
+        for (let lon = -180; lon < 180; lon += 3) {
+            points.push(lonLat(lon, lat, 1.002), lonLat(lon + 3, lat, 1.002));
+        }
+    }
+    for (let lon = -180; lon < 180; lon += 30) {
+        for (let lat = -90; lat < 90; lat += 3) {
+            points.push(lonLat(lon, lat, 1.002), lonLat(lon, lat + 3, 1.002));
+        }
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: 0x2874c4, transparent: true, opacity: 0.22, depthWrite: false });
+    globeGroup.add(new THREE.LineSegments(geometry, material));
 }
 function animate() {
     if (!renderer || !scene || !camera)
@@ -216,7 +232,7 @@ Page({
                 canvasSize = { width: result[0].width, height: result[0].height };
                 THREE = createScopedThreejs(canvas);
                 scene = new THREE.Scene();
-                scene.background = new THREE.Color(0x071b2a);
+                scene.background = new THREE.Color(0x02050c);
                 camera = new THREE.PerspectiveCamera(32, canvasSize.width / canvasSize.height, 0.1, 100);
                 camera.position.z = 3.1;
                 renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -228,13 +244,28 @@ Page({
                 globeGroup.add(countryGroup);
                 globeGroup.add(markerGroup);
                 scene.add(globeGroup);
-                scene.add(new THREE.AmbientLight(0x9fd9e0, 1.4));
+                scene.add(new THREE.AmbientLight(0x8cbcff, 0.8));
                 const light = new THREE.DirectionalLight(0xffffff, 1.1);
                 light.position.set(2, 2, 3);
                 scene.add(light);
-                earth = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 36), new THREE.MeshPhongMaterial({ color: 0x176b87, shininess: 18 }));
+                earth = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 36), new THREE.MeshPhongMaterial({ color: 0x071c3b, specular: 0x2563a6, shininess: 32 }));
+                const earthMaterial = earth.material;
+                const landImage = canvas.createImage();
+                landImage.onload = () => {
+                    const texture = new THREE.Texture(landImage);
+                    // SphereGeometry's UV origin is 90 degrees west of our longitude origin.
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.offset.x = 0.25;
+                    texture.needsUpdate = true;
+                    earthMaterial.color.setHex(0xffffff);
+                    earthMaterial.map = texture;
+                    earthMaterial.needsUpdate = true;
+                };
+                landImage.onerror = () => this.setData({ globeError: "陆地纹理加载失败，请重新进入地图" });
+                landImage.src = "/assets/images/globe-land.png";
                 globeGroup.add(earth);
                 createAtmosphere();
+                createGlobeGrid();
                 createStarfield();
                 rebuildCountries(this.data.level === "country" ? this.data.regions : []);
                 rebuildMarkers(this.data.level === "country" ? this.data.regions : []);
@@ -415,14 +446,18 @@ Page({
         if (!marker)
             return;
         if (this.data.citySelected && marker.contactId) {
-            wx.navigateTo({ url: `/pages/contact-detail/index?id=${marker.contactId}` });
+            this.setData({
+                center: { latitude: marker.latitude, longitude: marker.longitude },
+                includePoints: [{ latitude: marker.latitude, longitude: marker.longitude }],
+                mapScale: 16
+            });
         }
         else if (marker.name) {
             this.chooseRegion(marker.name);
         }
     },
-    openContact(event) {
-        wx.navigateTo({ url: `/pages/contact-detail/index?id=${event.currentTarget.dataset.id}` });
+    focusContact(event) {
+        this.mapMarkerTap({ detail: { markerId: Number(event.currentTarget.dataset.id) } });
     },
     setContactLocation(event) {
         wx.navigateTo({ url: `/pages/contact-form/index?id=${event.currentTarget.dataset.id}` });
