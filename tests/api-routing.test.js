@@ -10,6 +10,7 @@ global.wx = {
   removeStorageSync: key => store.delete(key),
   getAccountInfoSync: () => ({ miniProgram: { envVersion: "develop" } }),
   getDeviceInfo: () => ({ platform: "devtools" }),
+  getSystemInfoSync: () => ({ platform: "devtools" }),
   request(options) {
     remoteRequests.push(options);
     options.success({ statusCode: 200, data: structuredClone(location) });
