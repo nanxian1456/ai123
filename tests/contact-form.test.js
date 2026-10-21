@@ -333,3 +333,25 @@ test("AI extraction sends nothing when the user declines to share text with Deep
   assert.equal(calls.requests.some((item) => item[0] === "/ai/extract"), false);
   assert.equal(page.data.extracting, false);
 });
+
+test("a category deleted after opening the form from the graph is dropped instead of failing the save", async () => {
+  let tree = [{ id: "cat7", name: "大学", children: [] }];
+  const { page, calls } = createPage((route) => Promise.resolve(route === "/categories" ? { tree } : []));
+  page.onLoad({ categoryId: "cat7" });
+  await flush();
+  assert.deepEqual([...page.data.categoryIds], ["cat7"]);
+  tree = [];
+  page.input({ currentTarget: { dataset: { field: "name" } }, detail: { value: "分支联系人" } });
+  await page.save();
+  const saved = calls.requests.find(item => item[1] === "POST" && item[0] === "/contacts");
+  assert.ok(saved);
+  assert.deepEqual([...saved[2].categoryIds], []);
+  assert.ok(calls.toasts.some(item => /原分类已被删除/.test(item.title)));
+});
+
+test("a category that no longer exists when the form opens is removed right away", async () => {
+  const { page } = createPage((route) => Promise.resolve(route === "/categories" ? { tree: [{ id: "cat1", name: "朋友", children: [] }] } : []));
+  page.onLoad({ categoryId: "cat9" });
+  await flush();
+  assert.deepEqual([...page.data.categoryIds], []);
+});

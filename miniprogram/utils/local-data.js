@@ -15,17 +15,34 @@ const SHARDED = "ai-network-sharded-v1";
 const SHARD_BYTES = 200 * 1024;
 const ACCOUNT_BYTES = 8 * 1024 * 1024;
 const MAX_SHARDS = Math.ceil(ACCOUNT_BYTES / SHARD_BYTES);
+// Content-addressed layout: records are grouped at stable, ID-anchored boundaries and each
+// shard is stored under a key derived from its content. A save only writes the shards that
+// actually changed, so editing one contact needs a few KB of extra space instead of a full
+// second copy of the account (the old layout needed ~2x and failed at ~4-5MB).
+const MAX_PARTS = 4096;
+const GROUP_MIN_BYTES = 16 * 1024;
+const GROUP_MAX_BYTES = 64 * 1024;
+const PART_PATTERN = /^[0-9a-f]{16}-[0-9a-z]{1,8}$/;
 const LEGACY_COLLECTIONS = ["contacts", "relationships"];
 const LEGACY_ACCOUNT_BYTES = 10 * 1024 * 1024;
 let generationSequence = 0;
 function storageError() { return new Error("本机存储不足，保存失败，请先导出备份并释放手机存储空间"); }
 function readError() { return new Error("本机数据无法读取，请保留当前数据并使用备份恢复，勿重新导入旧数据"); }
 function shardKey(ownerId, generation, index) { return `ai-network-local-shards-v1:${encodeURIComponent(ownerId)}:shard:${generation}:${index}`; }
+function partKey(ownerId, part) { return `ai-network-local-shards-v1:${encodeURIComponent(ownerId)}:shard:c:${part}`; }
 function validManifest(value, ownerId) {
-  return value && value.storage === SHARDED && value.version === 1 && value.ownerId === ownerId &&
+  if (!(value && value.storage === SHARDED && value.version === 1 && value.ownerId === ownerId &&
     typeof value.generation === "string" && /^[a-z0-9]{1,12}-[a-z0-9]{1,12}-[a-z0-9]{1,20}$/.test(value.generation) &&
-    Number.isSafeInteger(value.count) && value.count > 0 && value.count <= MAX_SHARDS &&
-    Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= ACCOUNT_BYTES;
+    Number.isSafeInteger(value.count) && value.count > 0 &&
+    Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= ACCOUNT_BYTES)) return false;
+  if (value.parts === undefined) return value.count <= MAX_SHARDS;
+  return Array.isArray(value.parts) && value.parts.length === value.count && value.count <= MAX_PARTS &&
+    value.parts.every(part => typeof part === "string" && PART_PATTERN.test(part));
+}
+function manifestKeys(ownerId, manifest) {
+  return manifest.parts
+    ? manifest.parts.map(part => partKey(ownerId, part))
+    : Array.from({ length: manifest.count }, (_, index) => shardKey(ownerId, manifest.generation, index));
 }
 function validLegacyChunks(value, ownerId) {
   const layout = value && value.layout;
@@ -63,6 +80,64 @@ function utf8Bytes(value) {
   for (let index = 0; index < value.length;) { const [bytes, width] = codePointSize(value, index); total += bytes; index += width; }
   return total;
 }
+// Two independent 32-bit FNV-1a style hashes plus the length: a collision is additionally
+// detected at write time, because an existing key with different content is refused.
+function contentHash(value) {
+  let a = 0x811c9dc5;
+  let b = 0x01000193 ^ value.length;
+  for (let index = 0; index < value.length; index++) {
+    const code = value.charCodeAt(index);
+    a = Math.imul(a ^ code, 0x01000193);
+    b = Math.imul(b ^ code, 0x5bd1e995);
+    b ^= b >>> 15;
+  }
+  const hex = number => (number >>> 0).toString(16).padStart(8, "0");
+  return `${hex(a)}${hex(b)}-${value.length.toString(36)}`;
+}
+function anchored(item) {
+  const id = item && typeof item === "object" ? String(item.id) : "";
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < id.length; index++) hash = Math.imul(hash ^ id.charCodeAt(index), 0x01000193);
+  return ((hash >>> 0) & 3) === 0;
+}
+// Serializes exactly like JSON.stringify(value) (same key order), but returns it as pieces
+// whose boundaries fall between records, so unchanged records keep producing identical pieces.
+function serializeInPieces(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.contacts) || !Array.isArray(value.relationships)) return [JSON.stringify(value)];
+  const nonce = Math.random().toString(36).slice(2);
+  const marks = { contacts: `\u0000${nonce}:contacts`, relationships: `\u0000${nonce}:relationships` };
+  const skeleton = JSON.stringify({ ...value, contacts: marks.contacts, relationships: marks.relationships });
+  const found = Object.keys(marks).map(name => {
+    const token = JSON.stringify(marks[name]);
+    return { name, token, index: skeleton.indexOf(token) };
+  }).sort((left, right) => left.index - right.index);
+  if (found.some(item => item.index < 0)) return [JSON.stringify(value)];
+  const pieces = [];
+  let pending = "";
+  let cursor = 0;
+  for (const { name, token, index } of found) {
+    pending += skeleton.slice(cursor, index) + "[";
+    if (utf8Bytes(pending) > GROUP_MIN_BYTES) { pieces.push(pending); pending = ""; }
+    let group = "";
+    let groupBytes = 0;
+    value[name].forEach((item, position) => {
+      const text = (position ? "," : "") + (JSON.stringify(item) ?? "null");
+      group += text;
+      groupBytes += utf8Bytes(text);
+      if ((groupBytes >= GROUP_MIN_BYTES && anchored(item)) || groupBytes >= GROUP_MAX_BYTES) {
+        pieces.push(pending + group);
+        pending = ""; group = ""; groupBytes = 0;
+      }
+    });
+    if (group) { pieces.push(pending + group); pending = ""; }
+    pending += "]";
+    cursor = index + token.length;
+  }
+  pending += skeleton.slice(cursor);
+  if (pieces.length) pieces[pieces.length - 1] += pending;
+  else pieces.push(pending);
+  return pieces;
+}
 function splitStorage(serialized) {
   const shards = [];
   let start = 0;
@@ -83,9 +158,9 @@ function cleanupKeys(keys) {
   if (typeof wx.removeStorageSync !== "function") return;
   for (const storageKey of keys) { try { wx.removeStorageSync(storageKey); } catch (_) { /* A committed generation remains readable if cleanup fails. */ } }
 }
-function cleanupGeneration(ownerId, previous) {
+function cleanupGeneration(ownerId, previous, keep = new Set()) {
   if (validManifest(previous, ownerId)) {
-    cleanupKeys(Array.from({ length: previous.count }, (_, index) => shardKey(ownerId, previous.generation, index)));
+    cleanupKeys(manifestKeys(ownerId, previous).filter(storageKey => !keep.has(storageKey)));
   } else if (validLegacyChunks(previous, ownerId)) {
     for (const name of LEGACY_COLLECTIONS) {
       for (let index = 0; index < previous.layout[name]; index++) {
@@ -102,8 +177,8 @@ function read(ownerId) {
     if (!validManifest(stored, ownerId)) throw readError();
     const shards = [];
     let bytes = 0;
-    for (let index = 0; index < stored.count; index++) {
-      const shard = wx.getStorageSync(shardKey(ownerId, stored.generation, index));
+    for (const storageKey of manifestKeys(ownerId, stored)) {
+      const shard = wx.getStorageSync(storageKey);
       if (typeof shard !== "string" || !shard) throw readError();
       const shardBytes = utf8Bytes(shard);
       if (shardBytes > SHARD_BYTES) throw readError();
@@ -128,20 +203,35 @@ function write(ownerId, value) {
     cleanupGeneration(ownerId, previous);
     return value;
   }
-  const serialized = JSON.stringify(value);
-  const { shards, bytes } = splitStorage(serialized);
+  const shards = [];
+  let bytes = 0;
+  for (const piece of serializeInPieces(value)) {
+    const split = splitStorage(piece);
+    bytes += split.bytes;
+    if (bytes > ACCOUNT_BYTES) throw new Error("本机存储已接近容量上限，请先导出备份并减少联系人或备注");
+    shards.push(...split.shards);
+  }
+  if (!shards.length || shards.length > MAX_PARTS) throw storageError();
+  const parts = shards.map(contentHash);
+  const keys = parts.map(part => partKey(ownerId, part));
   const previous = wx.getStorageSync(key(ownerId));
   const generation = `${Date.now().toString(36)}-${(++generationSequence).toString(36)}-${Math.random().toString(36).slice(2) || "0"}`;
-  const stagedKeys = shards.map((_, index) => shardKey(ownerId, generation, index));
-  // Never overwrite a generation if an unexpected identifier collision occurs.
-  if (stagedKeys.some(storageKey => wx.getStorageSync(storageKey))) throw storageError();
+  // Only keys created by this save are removed if it fails; reused shards belong to the
+  // committed data (or are identical leftovers) and must stay.
   const attemptedKeys = [];
   try {
-    shards.forEach((shard, index) => { attemptedKeys.push(stagedKeys[index]); wx.setStorageSync(stagedKeys[index], shard); });
-    // Only this final storage write makes the fully staged generation visible.
-    wx.setStorageSync(key(ownerId), { storage: SHARDED, version: 1, ownerId, generation, count: shards.length, bytes });
+    shards.forEach((shard, index) => {
+      const existing = wx.getStorageSync(keys[index]);
+      if (existing === shard) return;
+      // Never overwrite a different shard if an unexpected content-key collision occurs.
+      if (existing) throw storageError();
+      attemptedKeys.push(keys[index]);
+      wx.setStorageSync(keys[index], shard);
+    });
+    // Only this final storage write makes the fully staged shards visible.
+    wx.setStorageSync(key(ownerId), { storage: SHARDED, version: 1, ownerId, generation, count: shards.length, bytes, parts });
   } catch (_) { cleanupKeys(attemptedKeys); throw storageError(); }
-  cleanupGeneration(ownerId, previous);
+  cleanupGeneration(ownerId, previous, new Set(keys));
   return value;
 }
 function storageUsage() {
@@ -155,14 +245,18 @@ function text(value, label, limit, required = false) {
   if (result.length > limit) throw new Error(`${label}不能超过${limit}字`);
   return result;
 }
+function coordinate(value) {
+  if (value == null || (typeof value === "string" && !value.trim())) return null;
+  return Number.isFinite(Number(value)) ? Number(value) : null;
+}
 function contactInput(payload, data) {
   if (!payload || typeof payload !== "object") throw new Error("联系人资料无效");
   const result = {};
   for (const [field, label, limit] of [["name", "姓名", 50], ["organization", "单位", 100], ["position", "职务", 50], ["country", "国家", 50], ["province", "省份", 50], ["city", "城市", 50], ["address", "详细位置", 200], ["phone", "电话", 30], ["email", "邮箱", 100], ["note", "备注", 500]]) {
     result[field] = text(payload[field], label, limit, field === "name");
   }
-  result.latitude = Number.isFinite(Number(payload.latitude)) ? Number(payload.latitude) : null;
-  result.longitude = Number.isFinite(Number(payload.longitude)) ? Number(payload.longitude) : null;
+  result.latitude = coordinate(payload.latitude);
+  result.longitude = coordinate(payload.longitude);
   if (result.phone && !/^[0-9+()\- ]{6,30}$/.test(result.phone)) throw new Error("手机号格式无效");
   if (result.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result.email)) throw new Error("邮箱格式无效");
   if (payload.tags != null && !Array.isArray(payload.tags)) throw new Error("标签格式无效");
@@ -184,13 +278,15 @@ function migrate(ownerId, exportData) {
   for (const name of ["categoryTree", "nextCategoryId", "dismissedCategories"]) {
     if (exportData[name] !== undefined) value[name] = exportData[name];
   }
-  categories.validate(value);
+  // Data exported by the server is repaired leniently (as in the archive) rather than rejected.
+  categories.normalize(value);
   return write(ownerId, value);
 }
 function requireData(ownerId) {
   const data = read(ownerId);
   if (!data) throw new Error("本机数据尚未初始化，请先登录并导入旧数据");
-  return data;
+  // Every page must see the same repaired IDs; reads never commit changes to storage.
+  return categories.normalize(data);
 }
 function initial(name) {
   const first = (name || "").trim()[0] || "";
@@ -204,10 +300,12 @@ function count(values) {
 }
 function matchContact(contact, query) {
   const keyword = (query.get("keyword") || "").toLowerCase().trim();
+  const exactRegion = query.has("country") || query.has("province");
   return (!keyword || [contact.name, contact.organization, contact.position].some(value => (value || "").toLowerCase().includes(keyword)))
-    && (!query.get("city") || contact.city === query.get("city"))
-    && (!query.get("country") || (contact.country || "") === query.get("country"))
-    && (!query.get("province") || (contact.province || "") === query.get("province"))
+    && ["country", "province", "city"].every(field => {
+      if (!query.has(field) || (!exactRegion && !query.get(field))) return true;
+      return (contact[field] || "") === query.get(field);
+    })
     && (!query.get("tag") || (contact.tags || []).includes(query.get("tag")));
 }
 function findContact(data, id) {
@@ -228,7 +326,7 @@ function handle(ownerId, path, method = "GET", payload) {
   const [route, search = ""] = path.split("?");
   const params = {};
   search.split("&").filter(Boolean).forEach(part => { const [name, value = ""] = part.split("="); params[decodeURIComponent(name)] = decodeURIComponent(value.replace(/\+/g, " ")); });
-  const query = { get: name => params[name] || "" };
+  const query = { get: name => params[name] || "", has: name => Object.prototype.hasOwnProperty.call(params, name) };
   if (route === "/categories" || route.startsWith("/categories/")) {
     const result = categories.handle(data, route, method, payload);
     if (method !== "GET") write(ownerId, data);

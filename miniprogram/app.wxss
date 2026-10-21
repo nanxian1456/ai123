@@ -1,7 +1,210 @@
-page { background: #f5f8fc; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif; }
+/* ============================================================
+   AI 人脉地图 · 全局设计规范
+   设计语言参照 frontend-beautify-resources.html：
+   浅色背景 + 白卡片 + 1px 细边框 + 柔和阴影 + 单一蓝色强调（#2563eb）
+   文字分三级（主文字 / 次级 muted / 弱化），圆角与间距统一
+   ============================================================ */
+page {
+  /* —— 配色变量（自定义组件内同样可继承 —— */
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --line: #e6e8ec;
+  --line-soft: #eef1f4;
+  --text: #1c1f23;
+  --muted: #6b7280;
+  --ink: #1f3a57;          /* 深蓝文字：标题、强调 */
+  --accent: #2563eb;       /* 主强调色（蓝） */
+  --accent-strong: #1d4ed8;
+  --accent-soft: #eff4ff;  /* 浅蓝底 */
+  --radius: 16rpx;
+  --radius-sm: 12rpx;
+  --shadow: 0 8rpx 28rpx rgba(20, 30, 60, .06);
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* —— 页面容器 —— */
 .page { min-height: 100vh; padding: 28rpx; box-sizing: border-box; }
-.card { background: #fff; border-radius: 16rpx; padding: 28rpx; box-sizing: border-box; box-shadow: 0 8rpx 28rpx rgba(19, 58, 99, 0.06); }
-.section-title { font-size: 34rpx; font-weight: 700; margin: 28rpx 0 18rpx; color: #163a63; }
-.muted { color: #7a8494; font-size: 26rpx; }
-.primary-button { background: #1677d2; color: #fff; border-radius: 12rpx; font-size: 30rpx; font-weight: 600; }
-.empty { text-align: center; color: #7a8494; padding: 72rpx 24rpx; }
+
+/* —— 卡片：白底 + 细边框 + 柔和阴影 —— */
+.card {
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius);
+  padding: 28rpx;
+  box-sizing: border-box;
+  box-shadow: var(--shadow);
+}
+.card--flush { padding: 0 25rpx; }            /* 内部含分隔线的卡片 */
+
+/* —— 区块标题：左侧强调条（样板风格）—— */
+.section-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 34rpx 0 18rpx;
+  padding-left: 18rpx;
+  border-left: 6rpx solid var(--accent);
+  line-height: 1.3;
+}
+
+/* —— 区块头：标题 + 右侧操作 —— */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 34rpx 3rpx 16rpx;
+}
+.section-head > text:first-child {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+.section-head .action-link { color: var(--accent); font-size: 25rpx; }
+
+/* —— 小标签 / kicker 胶囊 —— */
+.kicker {
+  display: inline-block;
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999rpx;
+  padding: 6rpx 18rpx;
+  margin-bottom: 16rpx;
+  font-weight: 600;
+}
+
+/* —— 胶囊标签（标签 / 计数）—— */
+.pill {
+  display: inline-block;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 21rpx;
+  line-height: 1.5;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* —— 次级文字 —— */
+.muted { color: var(--muted); font-size: 26rpx; }
+
+/* —— 按钮 —— */
+.primary-button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 22rpx 0;
+  text-align: center;
+}
+.primary-button[disabled] { opacity: .55; }
+
+.secondary-button {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 22rpx 0;
+  text-align: center;
+}
+.secondary-button[disabled] { opacity: .55; }
+
+.danger-button {
+  background: #a43f37;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 30rpx;
+  font-weight: 600;
+  padding: 22rpx 0;
+  text-align: center;
+}
+
+/* —— 输入框 ——
+   不叫 .field：联系人表单、个人资料、新建关系页用 .field 作「标签 + 输入框」的整行容器，
+   全局固定高度和四边框会撑乱这些行。需要独立输入框样式时用 class="input-box"。 */
+.input-box {
+  box-sizing: border-box;
+  width: 100%;
+  height: 88rpx;
+  padding: 0 20rpx;
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 28rpx;
+  color: var(--text);
+}
+
+/* —— 空状态 —— */
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 72rpx 24rpx;
+  font-size: 26rpx;
+}
+
+/* —— 分隔线 —— */
+.divider { height: 1rpx; background: var(--line-soft); margin: 8rpx 0; }
+
+/* —— 列表行（带底分隔线）—— */
+.row {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--line-soft);
+}
+.row:last-child { border-bottom: none; }
+
+/* —— 头像 ——
+   不提供全局 .avatar：首页、我的、地图、联系人等页面各自定义了不同尺寸的头像，
+   全局的 flex: 0 0 76rpx / 背景色会叠加进去，把头像压扁或染色。 */
+
+/* —— 右箭头 —— */
+.chevron { color: #9ba8b4; font-size: 44rpx; font-weight: 300; }
+
+/* Shared feedback uses explicit classes so page-specific graph/form rules stay scoped. */
+.app-help {
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.6;
+  margin: 12rpx 0;
+  overflow-wrap: anywhere;
+}
+.app-state {
+  padding: 24rpx;
+  margin: 16rpx 0;
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--muted);
+  text-align: center;
+  font-size: 26rpx;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.app-state--error { color: #a43f37; background: #fff5f3; border-color: #f0d2cd; }
+.app-state--warning { color: #805a14; background: #fff9eb; border-color: #efdfb8; }
+.app-action {
+  display: inline-block;
+  box-sizing: border-box;
+  min-height: 72rpx;
+  margin: 12rpx auto 0;
+  padding: 12rpx 24rpx;
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+.app-action::after { border: none; }
+.app-action[disabled] { opacity: .55; }

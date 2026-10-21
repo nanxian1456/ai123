@@ -142,3 +142,32 @@ test("hiding or restoring a recommendation never removes an existing category or
   assert.equal(result.tree[0].id, category.id);
   assert.deepEqual(local.handle(owner, "/contacts/1").categoryIds, [category.id]);
 });
+
+test("odd stored categories are repaired on read instead of breaking the graph, as in the archive", () => {
+  const owner = "lenient-owner";
+  store.clear(); failWrites = false;
+  local.migrate(owner, {
+    ownerId: owner,
+    contacts: [{ id: 1, ownerId: owner, name: "甲", categoryIds: ["cat1", "legacy", "cat404"] }],
+    relationships: [],
+    categoryTree: [
+      { id: "cat1", name: " 大学 ", children: [{ id: "cat1", name: "重复编号" }] },
+      { id: "legacy", name: "这是一个名字特别特别特别特别特别特别长的旧分类" },
+      null
+    ],
+    nextCategoryId: 1,
+    dismissedCategories: ["邻居", "邻居", ""]
+  });
+  const result = local.handle(owner, "/categories");
+  const ids = [];
+  (function walk(nodes) { nodes.forEach(node => { ids.push(node.id); walk(node.children); }); })(result.tree);
+  assert.equal(new Set(ids).size, 3);
+  assert.ok(ids.every(id => /^cat[1-9]\d*$/.test(id)));
+  assert.equal(result.tree[0].name, "大学");
+  assert.ok(result.tree[1].name.length <= 20);
+  assert.deepEqual(result.dismissed, ["邻居"]);
+  const contact = local.handle(owner, "/contacts/1");
+  assert.deepEqual(contact.categoryIds, ["cat1", result.tree[1].id], "renamed IDs follow the contact; missing ones are dropped");
+  const added = local.handle(owner, "/categories", "POST", { name: "新分类" });
+  assert.ok(!ids.includes(added.id));
+});

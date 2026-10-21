@@ -90,9 +90,49 @@ test("searching an unclassified contact opens the unclassified contact list", as
   assert.equal(page.data.selected.contacts.length, 1);
 });
 
-test("adding from the unclassified branch does not send a synthetic category ID", () => {
-  const urls = [];
-  const page = pageFor(() => Promise.resolve(), { navigateTo: options => urls.push(options.url) });
-  page.addContactToCategory({ currentTarget: { dataset: { id: "uncat" } } });
-  assert.deepEqual(urls, ["/pages/contact-form/index"]);
+test("the graph page has no manual contact entry and the unclassified branch cannot import", async () => {
+  const markup = fs.readFileSync(path.join(__dirname, "../miniprogram/pages/graph/index.wxml"), "utf8");
+  assert.doesNotMatch(source, /contact-form/);
+  assert.doesNotMatch(markup, /addFirst|addContactToCategory/);
+  const owner = seed();
+  const page = pageFor(route => Promise.resolve(local.handle(owner, route)));
+  await page.loadAll();
+  page.openImport({ currentTarget: { dataset: { id: "uncat" } } });
+  assert.notEqual(page.data.sheet, "import");
+});
+
+test("importing existing contacts files them under the category and reopens it", async () => {
+  const owner = seed();
+  local.handle(owner, "/contacts", "POST", { name: "李四", organization: "南邮" });
+  local.handle(owner, "/contacts", "POST", { name: "王五" });
+  const parent = local.handle(owner, "/categories", "POST", { name: "大学" });
+  const child = local.handle(owner, "/categories", "POST", { name: "南邮", parentId: parent.id });
+  local.handle(owner, "/contacts/1", "PATCH", { name: "旧姓名", categoryIds: [child.id] });
+  const toasts = [];
+  const page = pageFor((route, method, body) => Promise.resolve(local.handle(owner, route, method, body)), { showToast: options => toasts.push(options.title) });
+  await page.loadAll();
+  page.openImport({ currentTarget: { dataset: { id: parent.id } } });
+  assert.equal(page.data.sheet, "import");
+  // Contacts already shown through a child category are not offered again.
+  assert.deepEqual(page.data.importList.map(item => item.name), ["李四", "王五"]);
+  page.onImportKeyword({ detail: { value: "南邮" } });
+  assert.deepEqual(page.data.importList.map(item => item.name), ["李四"]);
+  page.toggleImport({ currentTarget: { dataset: { id: String(page.data.importList[0].id) } } });
+  assert.equal(page.data.importCount, 1);
+  page.confirmImport(); await flush(); await flush();
+  assert.deepEqual(toasts, ["已导入 1 位"]);
+  assert.equal(page.data.sheet, "branch");
+  assert.deepEqual(Array.from(page.data.selected.contacts, item => item.name).sort(), ["李四", "旧姓名"].sort());
+  assert.deepEqual(local.handle(owner, "/contacts/2").categoryIds, [parent.id]);
+});
+
+test("a category import is rejected as a whole when one contact is already in 20 categories", () => {
+  const owner = seed();
+  local.handle(owner, "/contacts", "POST", { name: "李四" });
+  const ids = Array.from({ length: 21 }, (_, index) => local.handle(owner, "/categories", "POST", { name: `分类${index}` }).id);
+  local.handle(owner, "/contacts/1", "PATCH", { name: "旧姓名", categoryIds: ids.slice(0, 20) });
+  assert.throws(() => local.handle(owner, `/categories/${ids[20]}/contacts`, "POST", { contactIds: [2, 1] }), /20个分类/);
+  assert.equal(local.handle(owner, "/contacts/2").categoryIds, undefined);
+  assert.throws(() => local.handle(owner, `/categories/${ids[20]}/contacts`, "POST", { contactIds: [99] }), /联系人不存在/);
+  assert.throws(() => local.handle(owner, `/categories/${ids[20]}/contacts`, "POST", { contactIds: [] }), /请选择/);
 });

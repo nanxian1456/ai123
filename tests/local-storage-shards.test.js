@@ -100,10 +100,12 @@ test("global10MB quota accounts for staging and retains original committed data"
     save(key, value);
   };
   try {
-    const original = { ...data("one"), extra: "x".repeat(6 * 1024 * 1024) };
+    // Non-repeating text: identical shards are stored once, so a repeated character would fit.
+    const unique = tag => Array.from({ length: 6 * 1024 * 1024 / 8 }, (_, i) => tag + i.toString(36).padStart(7, "0")).join("");
+    const original = { ...data("one"), extra: unique("x") };
     local.write("one", original);
     const oldKeys = [...store.keys()];
-    assert.throws(() => local.write("one", { ...original, extra: "y".repeat(6 * 1024 * 1024) }), /存储.*备份/);
+    assert.throws(() => local.write("one", { ...original, extra: unique("y") }), /存储.*备份/);
     assert.deepEqual(local.read("one"), original);
     assert.deepEqual([...store.keys()], oldKeys);
   } finally { wx.setStorageSync = save; }
@@ -141,4 +143,58 @@ test("unrecognized stored versions and damaged manifest markers never appear as 
   assert.throws(() => local.read("one"), /数据.*读取.*备份/);
   store.set(local.key("one"), { ...data("one"), version: 2 });
   assert.throws(() => local.read("one"), /数据.*读取.*备份/);
+});
+
+function withTotalQuota(limit, run) {
+  const save = wx.setStorageSync;
+  let writes = 0;
+  wx.setStorageSync = (key, value) => {
+    const proposed = new Map(store); proposed.set(key, value);
+    const bytes = [...proposed.values()].reduce((total, item) => total + Buffer.byteLength(typeof item === "string" ? item : JSON.stringify(item), "utf8"), 0);
+    if (bytes > limit) throw new Error("total quota");
+    writes++;
+    save(key, value);
+  };
+  try { return run(() => writes); } finally { wx.setStorageSync = save; }
+}
+
+test("editing one contact in a large account only writes the changed shards", () => {
+  reset();
+  const large = data("one", 3000);
+  local.write("one", large);
+  assert.ok(store.get(local.key("one")).count > 10);
+  withTotalQuota(Infinity, writes => {
+    const changed = local.read("one");
+    changed.contacts[1500].name = "改过的名字";
+    local.write("one", changed);
+    assert.ok(writes() <= 3, `expected a couple of shard writes, got ${writes()}`);
+    assert.equal(local.read("one").contacts[1500].name, "改过的名字");
+    assert.deepEqual(local.read("one").contacts[0], large.contacts[0]);
+  });
+});
+
+test("an account over half of the 10MB quota can still be edited", () => {
+  reset();
+  const large = data("one", 0);
+  large.contacts = Array.from({ length: 5000 }, (_, i) => ({ id: i + 1, ownerId: "one", name: `联系人${i}`, note: `备注${i}`.padEnd(400, "，") }));
+  large.nextContactId = 5001;
+  assert.ok(Buffer.byteLength(JSON.stringify(large), "utf8") > 5.5 * 1024 * 1024);
+  withTotalQuota(10 * 1024 * 1024, () => {
+    local.write("one", large);
+    const keys = new Set(store.keys());
+    const changed = local.read("one");
+    changed.contacts.push({ id: 5001, ownerId: "one", name: "新联系人" });
+    changed.nextContactId = 5002;
+    local.write("one", changed);
+    assert.equal(local.read("one").contacts.length, 5001);
+    const stale = [...keys].filter(key => key.includes(":shard:") && !store.has(key));
+    assert.ok(stale.length <= 3, "only replaced shards are removed");
+  });
+});
+
+test("pieces keep the original key order so serialized comparisons stay stable", () => {
+  reset();
+  const value = data("one", 50);
+  local.write("one", value);
+  assert.equal(JSON.stringify(local.read("one")), JSON.stringify(value));
 });

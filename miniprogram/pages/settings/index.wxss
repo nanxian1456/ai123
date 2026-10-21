@@ -1,9 +1,9 @@
 .settings-menu { padding-top:35rpx; }
 .module-row { min-height:116rpx; display:flex; align-items:center; margin-bottom:20rpx; padding:0 25rpx; }
 .module-icon { width:60rpx; height:60rpx; display:flex; align-items:center; justify-content:center; flex:0 0 60rpx; border-radius:10rpx; color:#fff; font-size:25rpx; font-weight:700; }
-.profile-icon { background:#1684c3; }
+.profile-icon { background:#2563eb; }
 .security-icon { background:#18a88e; }
 .friends-icon { background:#d89134; }
 .privacy-icon { background:#7b6cb3; }
-.module-name { flex:1; margin-left:21rpx; color:#263c4e; font-size:30rpx; font-weight:600; }
+.module-name { flex:1; margin-left:21rpx; color:#1f3a57; font-size:30rpx; font-weight:600; }
 .chevron { color:#9ba8b4; font-size:44rpx; font-weight:300; }

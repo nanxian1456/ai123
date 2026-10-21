@@ -1,6 +1,6 @@
 <view class="page backup-page">
   <view class="backup-reminder">联系人只保存在当前手机。建议定期导出加密备份，换手机、清理微信数据或恢复旧备份前先备份最新数据。</view>
-  <view wx:if="{{busy}}" class="backup-status" role="status">{{busyMessage}}</view>
+  <view wx:if="{{busy}}" class="app-state" role="status">{{busyMessage}}</view>
   <view class="section-title">导出加密备份</view>
   <view class="backup-section">
     <input disabled="{{busy}}" password value="{{exportPassword}}" bindinput="exportPasswordInput" placeholder="设置至少10位备份密码" maxlength="64" />

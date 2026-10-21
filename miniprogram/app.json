@@ -25,11 +25,11 @@
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "AI人脉地图",
-    "backgroundColor": "#f5f8fc"
+    "backgroundColor": "#f6f7f9"
   },
   "tabBar": {
-    "color": "#7a8494",
-    "selectedColor": "#1677d2",
+    "color": "#6b7280",
+    "selectedColor": "#2563eb",
     "backgroundColor": "#ffffff",
     "list": [
       {
@@ -56,6 +56,7 @@
   },
   "workers": "workers",
   "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
   "requiredPrivateInfos": ["chooseLocation"],
   "sitemapLocation": "sitemap.json"
 }

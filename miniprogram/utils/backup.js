@@ -60,7 +60,8 @@ function validateData(data, ownerId) {
 }
 async function create(ownerId, password) {
   if (typeof password !== "string" || password.length < 10) throw new Error("备份密码至少10位");
-  const data = validateData(local.read(ownerId), ownerId);
+  const snapshot = local.read(ownerId);
+  const data = validateData(snapshot ? categories.normalize(snapshot) : snapshot, ownerId);
   const salt = await randomHex(16);
   const iv = await randomHex(16);
   const avatarPath = data.profile.avatarUrl || "";
