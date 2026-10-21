@@ -221,6 +221,8 @@ async function validateSession() {
 function request(path, method = "GET", data) {
     if (path === "/ai/extract")
         return ensureSession().then((token) => backendRequest(path, method, data, token));
+    if (path.split("?", 1)[0] === "/maps/locations")
+        return ensureSession().then((token) => backendRequest(path, method, data, token));
     if (path === "/me/import-code")
         return ensureSession().then((token) => backendRequest("/me", "GET", undefined, token).then((profile) => profile.contactCode));
     if (path.startsWith("/users/importable/"))

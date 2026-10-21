@@ -61,8 +61,12 @@ Page({
       name: "",
       organization: "",
       position: "",
-      city: "",
+      country: "",
       province: "",
+      city: "",
+      address: "",
+      latitude: null as number | null,
+      longitude: null as number | null,
       phone: "",
       email: "",
       note: "",
@@ -149,8 +153,12 @@ Page({
           name: contact.name || "",
           organization: contact.organization || "",
           position: contact.position || "",
-          city: contact.city || "",
+          country: contact.country || "",
           province: contact.province || "",
+          city: contact.city || "",
+          address: contact.address || "",
+          latitude: contact.latitude ?? null,
+          longitude: contact.longitude ?? null,
           phone: contact.phone || "",
           email: contact.email || "",
           note: contact.note || "",
@@ -182,7 +190,24 @@ Page({
       );
       updates.selectedTags = splitTags(event.detail.value);
     }
+    if (field === "address") {
+      updates["form.latitude"] = null;
+      updates["form.longitude"] = null;
+    }
     this.setData(updates);
+  },
+  chooseLocation() {
+    if (this.data.loading || this.data.loadFailed) return;
+    wx.chooseLocation({
+      success: (location: any) => {
+        const address = [location.name, location.address].filter(Boolean).join("，");
+        this.setData({
+          "form.address": address,
+          "form.latitude": location.latitude,
+          "form.longitude": location.longitude,
+        });
+      },
+    });
   },
   removeTag(event: any) {
     if (this.data.loading || this.data.loadFailed) return;

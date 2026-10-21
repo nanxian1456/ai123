@@ -30,8 +30,10 @@
     <view class="field"><text>姓名 *</text><input data-field="name" disabled="{{loading || loadFailed || saving}}" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
     <view class="field"><text>单位</text><input data-field="organization" disabled="{{loading || loadFailed || saving}}" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构" maxlength="100"/></view>
     <view class="field"><text>职务</text><input data-field="position" disabled="{{loading || loadFailed || saving}}" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等" maxlength="50"/></view>
+    <view class="field"><text>国家</text><input data-field="country" disabled="{{loading || loadFailed || saving}}" value="{{form.country}}" bindinput="input" placeholder="工作国家或地区" maxlength="50"/></view>
     <view class="field"><text>省份</text><input data-field="province" disabled="{{loading || loadFailed || saving}}" value="{{form.province}}" bindinput="input" placeholder="所在省份" maxlength="50"/></view>
     <view class="field"><text>城市</text><input data-field="city" disabled="{{loading || loadFailed || saving}}" value="{{form.city}}" bindinput="input" placeholder="工作城市" maxlength="50"/></view>
+    <view class="field"><text>详细位置</text><view class="location-field"><input data-field="address" disabled="{{loading || loadFailed || saving}}" value="{{form.address}}" bindinput="input" placeholder="街道、门牌等" maxlength="120"/><text class="location-pick" bindtap="chooseLocation">地图选点</text></view></view>
     <view class="field"><text>电话</text><input data-field="phone" disabled="{{loading || loadFailed || saving}}" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
     <view class="field"><text>邮箱</text><input data-field="email" disabled="{{loading || loadFailed || saving}}" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
     <view class="tag-field-label">归入分类<text class="field-hint">可多选，再点一次取消</text></view>

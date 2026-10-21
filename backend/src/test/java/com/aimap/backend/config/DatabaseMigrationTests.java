@@ -12,8 +12,9 @@ class DatabaseMigrationTests {
     @Test
     void migrationCreatesSchemaOnceAndPreservesRecords() throws Exception {
         String url = "jdbc:h2:mem:migration-empty;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
+        int availableMigrations = Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").load().info().all().length;
         Flyway flyway = Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").load();
-        assertEquals(1, flyway.migrate().migrationsExecuted);
+        assertEquals(availableMigrations, flyway.migrate().migrationsExecuted);
         try (var connection = DriverManager.getConnection(url, "sa", ""); var statement = connection.createStatement()) {
             statement.execute("INSERT INTO contacts (owner_id, name) VALUES ('migration-test-owner', 'Migration test')");
             assertEquals(0, flyway.migrate().migrationsExecuted);
