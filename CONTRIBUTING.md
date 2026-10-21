@@ -23,7 +23,7 @@
 3. 检查 `project.config.json` 的 `miniprogramRoot` 仍是 `miniprogram/`。
 4. 运行与改动相关的前端语法检查或后端测试。
    小程序修改 TypeScript 后运行 `npm run build` 生成 JavaScript，再执行 `npm run check`；不要手工维护两份逻辑。后端运行 `backend/mvnw.cmd -f backend/pom.xml verify`，发布前运行 `python scripts/verify-backend-artifact.py`。
-5. 更新根目录 `CHANGELOG.md`，只在“最近改动”表增加真实改动；时间使用北京时间，改动人核对 `git config user.name`，内容写清实际影响。新条目的提交编号填“本次提交”，旧条目使用可查证的短提交号；正式日志不得留“待提交”或示例姓名。
+5. 更新根目录 `CHANGELOG.md`，只在“最近改动”表增加真实改动；时间使用北京时间，改动人核对 `git config user.name`，内容写清实际影响。每次提交都遍历全部历史条目，回填已生成提交的旧“本次提交”，核对短提交号与 Author，并补齐同步、合并带来的遗漏记录，不能只看本次新增行。只有当前尚未创建的提交保留一条“本次提交”，下一次提交前回填；不修改已有 Git 提交编号。正式日志不得留历史占位、“待提交”或示例姓名。
 6. 说明功能变化、验证结果和可能影响的前后端接口。
 
 提交前检查 `CHANGELOG.md` 的表格行没有缺列，并搜索“待提交”“姓名”等占位内容。示例只放在代码块中，不能放进“最近改动”表。已下线功能的旧记录仍保留，通过新记录说明下线，不改写历史。
