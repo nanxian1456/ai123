@@ -10,7 +10,17 @@ const directoryGroups = (contacts) => {
     return LETTERS.filter(letter => groups.has(letter)).map(letter => ({ letter, contacts: groups.get(letter) || [] }));
 };
 Page({
-    data: { keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", contacts: [], groups: [], tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
+    requestId: 0,
+    manageCategories() {
+        wx.setStorageSync("graph-category-entry", {
+            ownerId: wx.getStorageSync("ai-network-owner-id"), expiresAt: Date.now() + 30000,
+        });
+        wx.switchTab({ url: "/pages/graph/index", fail: () => {
+                wx.removeStorageSync("graph-category-entry");
+                (0, api_1.showError)(new Error("分类管理打开失败，请重试"));
+            } });
+    },
+    data: { loading: false, loadError: "", keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", contacts: [], groups: [], tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
     onShow() {
         const region = wx.getStorageSync("contact-filter-region");
         const city = wx.getStorageSync("contact-filter-city");
@@ -29,26 +39,37 @@ Page({
     catch (error) {
         (0, api_1.showError)(error);
     } },
-    async loadContacts() { try {
-        const params = [`keyword=${encodeURIComponent(this.data.keyword)}`];
-        if (this.data.regionFilter)
-            params.push(`country=${encodeURIComponent(this.data.country)}`, `province=${encodeURIComponent(this.data.province)}`, `city=${encodeURIComponent(this.data.city)}`);
-        else if (this.data.city)
-            params.push(`city=${encodeURIComponent(this.data.city)}`);
-        if (this.data.selectedTag)
-            params.push(`tag=${encodeURIComponent(this.data.selectedTag)}`);
-        const query = params.join("&");
-        this.data.activeQuery = query;
-        const contacts = await (0, api_1.request)(`/contacts/directory?${query}`);
-        if (this.data.activeQuery !== query)
-            return;
-        const groups = directoryGroups(contacts);
-        const available = new Set(groups.map(group => group.letter));
-        this.setData({ contacts, groups, letters: LETTERS.map(letter => ({ letter, available: available.has(letter) })), scrollIntoView: "" });
-    }
-    catch (error) {
-        (0, api_1.showError)(error);
-    } },
+    async loadContacts() {
+        const current = ++this.requestId;
+        this.setData({ loading: true, loadError: "" });
+        try {
+            const params = [`keyword=${encodeURIComponent(this.data.keyword)}`];
+            if (this.data.regionFilter)
+                params.push(`country=${encodeURIComponent(this.data.country)}`, `province=${encodeURIComponent(this.data.province)}`, `city=${encodeURIComponent(this.data.city)}`);
+            else if (this.data.city)
+                params.push(`city=${encodeURIComponent(this.data.city)}`);
+            if (this.data.selectedTag)
+                params.push(`tag=${encodeURIComponent(this.data.selectedTag)}`);
+            const query = params.join("&");
+            this.data.activeQuery = query;
+            const contacts = await (0, api_1.request)(`/contacts/directory?${query}`);
+            if (current !== this.requestId)
+                return;
+            const groups = directoryGroups(contacts);
+            const available = new Set(groups.map(group => group.letter));
+            this.setData({ contacts, groups, letters: LETTERS.map(letter => ({ letter, available: available.has(letter) })), scrollIntoView: "" });
+        }
+        catch (error) {
+            if (current === this.requestId) {
+                this.setData({ loadError: "联系人加载失败，请重新加载" });
+                (0, api_1.showError)(error);
+            }
+        }
+        finally {
+            if (current === this.requestId)
+                this.setData({ loading: false });
+        }
+    },
     onKeyword(event) { this.setData({ keyword: event.detail.value }); },
     search() { this.loadContacts(); },
     selectTag(event) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: tag }); this.loadContacts(); },

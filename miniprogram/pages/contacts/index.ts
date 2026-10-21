@@ -11,7 +11,17 @@ const directoryGroups = (contacts: Contact[]) => {
 };
 
 Page({
-  data: { keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", contacts: [] as Contact[], groups: [] as any[], tags: filterTags([]) as Tag[], creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
+  requestId: 0,
+  manageCategories() {
+    wx.setStorageSync("graph-category-entry", {
+      ownerId: wx.getStorageSync("ai-network-owner-id"), expiresAt: Date.now() + 30000,
+    });
+    wx.switchTab({ url: "/pages/graph/index", fail: () => {
+      wx.removeStorageSync("graph-category-entry");
+      showError(new Error("分类管理打开失败，请重试"));
+    } });
+  },
+  data: { loading: false, loadError: "", keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", contacts: [] as Contact[], groups: [] as any[], tags: filterTags([]) as Tag[], creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
   onShow() {
     const region = wx.getStorageSync("contact-filter-region") as { country?: string; province?: string; city?: string } | "";
     const city = wx.getStorageSync("contact-filter-city") as string;
@@ -22,7 +32,29 @@ Page({
     this.loadTags(); this.loadContacts();
   },
   async loadTags() { try { this.setData({ tags: filterTags(await request<Tag[]>("/tags")) }); } catch (error) { showError(error); } },
-  async loadContacts() { try { const params = [`keyword=${encodeURIComponent(this.data.keyword)}`]; if (this.data.regionFilter) params.push(`country=${encodeURIComponent(this.data.country)}`, `province=${encodeURIComponent(this.data.province)}`, `city=${encodeURIComponent(this.data.city)}`); else if (this.data.city) params.push(`city=${encodeURIComponent(this.data.city)}`); if (this.data.selectedTag) params.push(`tag=${encodeURIComponent(this.data.selectedTag)}`); const query = params.join("&"); this.data.activeQuery = query; const contacts = await request<Contact[]>(`/contacts/directory?${query}`); if (this.data.activeQuery !== query) return; const groups = directoryGroups(contacts); const available = new Set(groups.map(group => group.letter)); this.setData({ contacts, groups, letters: LETTERS.map(letter => ({ letter, available: available.has(letter) })), scrollIntoView: "" }); } catch (error) { showError(error); } },
+  async loadContacts() {
+    const current = ++this.requestId;
+    this.setData({ loading: true, loadError: "" });
+    try {
+      const params = [`keyword=${encodeURIComponent(this.data.keyword)}`];
+      if (this.data.regionFilter) params.push(`country=${encodeURIComponent(this.data.country)}`, `province=${encodeURIComponent(this.data.province)}`, `city=${encodeURIComponent(this.data.city)}`);
+      else if (this.data.city) params.push(`city=${encodeURIComponent(this.data.city)}`);
+      if (this.data.selectedTag) params.push(`tag=${encodeURIComponent(this.data.selectedTag)}`);
+      const query = params.join("&"); this.data.activeQuery = query;
+      const contacts = await request<Contact[]>(`/contacts/directory?${query}`);
+      if (current !== this.requestId) return;
+      const groups = directoryGroups(contacts);
+      const available = new Set(groups.map(group => group.letter));
+      this.setData({ contacts, groups, letters: LETTERS.map(letter => ({ letter, available: available.has(letter) })), scrollIntoView: "" });
+    } catch (error) {
+      if (current === this.requestId) {
+        this.setData({ loadError: "联系人加载失败，请重新加载" });
+        showError(error);
+      }
+    } finally {
+      if (current === this.requestId) this.setData({ loading: false });
+    }
+  },
   onKeyword(event: any) { this.setData({ keyword: event.detail.value }); },
   search() { this.loadContacts(); },
   selectTag(event: any) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: tag }); this.loadContacts(); },

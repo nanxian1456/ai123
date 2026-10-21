@@ -16,9 +16,17 @@
   </view>
 
   <block wx:if="{{level !== 'country'}}">
-    <map wx:if="{{center && includePoints.length}}" class="region-map" latitude="{{center.latitude}}" longitude="{{center.longitude}}" scale="{{mapScale}}" markers="{{markers}}" polygons="{{provincePolygons}}" include-points="{{includePoints}}" bindmarkertap="mapMarkerTap" show-location="{{false}}" enable-zoom="{{true}}" enable-scroll="{{true}}" show-compass="{{true}}" />
-    <view wx:else class="map-placeholder">{{mapError || '正在定位地区'}}</view>
+    <map wx:if="{{center && includePoints.length && !coordinateLoading}}" class="region-map" latitude="{{center.latitude}}" longitude="{{center.longitude}}" scale="{{mapScale}}" markers="{{markers}}" polygons="{{provincePolygons}}" include-points="{{includePoints}}" data-load-id="{{mapLoadId}}" bindupdated="onMapUpdated" binderror="onMapError" bindmarkertap="mapMarkerTap" show-location="{{false}}" enable-zoom="{{true}}" enable-scroll="{{true}}" show-compass="{{true}}" />
+    <view wx:else class="map-placeholder" role="status">{{coordinateLoading ? '正在获取地区坐标…' : (mapError || '当前地区暂无可显示的位置')}}</view>
+    <view wx:if="{{mapWaiting}}" class="app-state" role="status">已取得坐标，正在等待地图更新…</view>
+    <view wx:if="{{mapSlow}}" class="app-state app-state--warning" role="status">地图更新较慢，可稍候或切换网络。下方联系人列表仍可使用。</view>
+    <view wx:if="{{center && !coordinateLoading}}" class="app-help">底图由微信加载。若仍空白，可切换网络后重新加载。</view>
+    <view wx:if="{{(mapSlow || mapError || center) && !coordinateLoading}}" class="app-state">
+      <button class="app-action" bindtap="retryMap" disabled="{{loading}}">重新加载地图</button>
+    </view>
   </block>
+
+  <view wx:if="{{mapError && center}}" class="app-state app-state--warning">{{mapError}}</view>
 
   <view class="path">
     <button class="path-item" bindtap="backToWorld">全球</button>
@@ -83,7 +91,7 @@
     </view>
   </view>
 
-  <view class="empty" wx:if="{{loading}}">正在加载地区数据</view>
-  <view class="empty" wx:elif="{{error}}"><text>{{error}}</text><button class="retry" bindtap="load">重试</button></view>
-  <view class="empty" wx:elif="{{citySelected ? !filteredContacts.length : !filteredRegions.length}}">暂无匹配数据</view>
+  <view class="app-state" wx:if="{{loading}}" role="status">正在加载地区数据…</view>
+  <view class="app-state app-state--error" wx:elif="{{error}}"><text>{{error}}</text><button class="app-action" bindtap="load">重新加载</button></view>
+  <view class="app-state" wx:elif="{{citySelected ? !filteredContacts.length : !filteredRegions.length}}">暂无匹配数据</view>
 </view>

@@ -7,6 +7,7 @@ let loginPromise: Promise<string> | null = null;
 let migrationPromise: Promise<string> | null = null;
 interface RequestError extends Error {
   code?: string;
+  requestId?: string;
   statusCode?: number;
   ambiguous?: boolean;
 }
@@ -97,6 +98,7 @@ function backendRequest<T = any>(
     wx.request({
       url: `${getApiBaseUrl()}${path}`,
       method: method as any,
+      timeout: path === "/ai/extract" ? 60000 : 20000,
       data,
       header: {
         "content-type": "application/json",
@@ -106,7 +108,8 @@ function backendRequest<T = any>(
         if (response.statusCode >= 200 && response.statusCode < 300)
           resolve(response.data as T);
         else {
-          if (response.statusCode === 401 && token === getStoredToken()) {
+          const invalidSession = response.statusCode === 401 && !!token;
+          if (invalidSession && token === getStoredToken()) {
             wx.removeStorageSync(TOKEN_KEY);
             wx.removeStorageSync(EXPIRY_KEY);
           }
@@ -121,23 +124,32 @@ function backendRequest<T = any>(
                 )
               : [];
           const error: RequestError =
-            response.statusCode === 401
+            invalidSession
               ? sessionError()
               : new Error(
                   [
                     typeof body.message === "string"
                       ? body.message
-                      : "服务请求失败",
+                      : response.statusCode === 429
+                        ? "操作太频繁，请稍后重试"
+                        : "服务暂不可用，请稍后重试；本机资料仍可使用",
                     ...fields,
                   ].join("；"),
                 );
           error.statusCode = response.statusCode;
+          if (!invalidSession && typeof body.code === "string") error.code = body.code;
+          if (typeof body.requestId === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(body.requestId))
+            error.requestId = body.requestId;
           error.ambiguous = response.statusCode >= 500;
           reject(error);
         }
       },
-      fail: () => {
-        const error: RequestError = new Error("无法连接后端，请检查网络后重试");
+      fail: (failure) => {
+        const timedOut = /timeout/i.test(failure?.errMsg || "");
+        const error: RequestError = new Error(timedOut
+          ? "请求超时，请稍后重试；本机资料仍可使用"
+          : "无法连接后端，请检查网络和后端是否启动；本机资料仍可使用");
+        error.code = timedOut ? "REQUEST_TIMEOUT" : "NETWORK_UNAVAILABLE";
         error.ambiguous = true;
         reject(error);
       },
@@ -257,7 +269,7 @@ export function request<T = any>(
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
     );
-  if (path === "/maps/locations")
+  if (path.split("?", 1)[0] === "/maps/locations")
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
     );
@@ -397,26 +409,56 @@ export function uploadAvatar<T = any>(filePath: string): Promise<T> {
         wx.getFileSystemManager().saveFile({
           tempFilePath: filePath,
           success(saved) {
+            let previous = "";
             try {
               const data = requireLocalData(ownerId);
+              previous = data.profile.avatarUrl || "";
               data.profile = {
                 ...data.profile,
                 avatarUrl: saved.savedFilePath,
               };
               local.write(ownerId, data);
-              resolve(data.profile);
             } catch (error) {
-              reject(error);
+              // The new file is not referenced anywhere, so it must not occupy the saved-file quota.
+              removeLocalFile(saved.savedFilePath);
+              return reject(error);
             }
+            // Saved files share a 10MB quota; the replaced avatar is no longer referenced.
+            if (previous && previous !== saved.savedFilePath) removeLocalFile(previous);
+            resolve(requireLocalData(ownerId).profile as T);
           },
           fail: () => reject(new Error("头像无法保存到手机，请检查存储空间")),
         }),
       ),
   );
 }
+// Removes an avatar file this app saved earlier: wx.saveFile results, or files written under
+// USER_DATA_PATH (backup restore). Remote URLs are never touched; failures are ignored.
+function removeLocalFile(path: string): void {
+  if (!path || /^https?:\/\//i.test(path)) return;
+  try {
+    const fs = wx.getFileSystemManager();
+    const userData = (wx.env && wx.env.USER_DATA_PATH) || "";
+    if (userData && path.startsWith(`${userData}/`)) fs.unlink({ filePath: path, fail: () => {} });
+    else fs.removeSavedFile({ filePath: path, fail: () => {} });
+  } catch (_) {
+    /* Cleanup is best effort and must not affect the saved avatar. */
+  }
+}
 export function showError(error: unknown): void {
+  const message = error instanceof Error ? error.message : "操作失败，请重试";
+  const reference = error instanceof Error ? (error as RequestError).requestId : "";
+  if (message.length > 18 || reference) {
+    wx.showModal({
+      title: "操作未完成",
+      content: message + (reference ? `\n\n反馈编号：${reference}` : ""),
+      showCancel: false,
+      confirmText: "知道了",
+    });
+    return;
+  }
   wx.showToast({
-    title: error instanceof Error ? error.message : "操作失败",
+    title: message,
     icon: "none",
   });
 }

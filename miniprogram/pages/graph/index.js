@@ -74,7 +74,12 @@ Page({
     manageDismissed: [],
     focusedBranch: "",
     focusedName: "",
-    searchResults: []
+    searchResults: [],
+    importCategoryId: "",
+    importKeyword: "",
+    importList: [],
+    importTotal: 0,
+    importCount: 0
   },
 
   // —— 非渲染状态 ——
@@ -138,7 +143,19 @@ Page({
     this.setData({ filters: { person: true, org: true, city: true }, relFilter: {} });
   },
   onReady() { this.initCanvas(); },
-  onShow() { this.visible = true; if (this.canvasReady) this.loadAll(); else this.pendingLoad = true; },
+  onShow() {
+    this.visible = true;
+    const entry = wx.getStorageSync("graph-category-entry");
+    if (entry) {
+      wx.removeStorageSync("graph-category-entry");
+      if (entry.ownerId && entry.ownerId === wx.getStorageSync("ai-network-owner-id") && entry.expiresAt > Date.now()) {
+        this.openManageAfterLoad = true;
+        this.setData({ mode: "tree", sheet: "" });
+      }
+    }
+    if (this.canvasReady) return this.loadAll();
+    this.pendingLoad = true;
+  },
   onHide() {
     this.visible = false;
     this.simRunning = false;
@@ -184,6 +201,7 @@ Page({
         const sig = JSON.stringify([profile, catRes, contacts, relationships]);
         if (sig === this.dataSig && this.networkGraph && this.treeGraph) {
           this.setData({ loading: false }); this.updateCounts(); this.render();
+          if (this.openManageAfterLoad) { this.openManageAfterLoad = false; this.openManage(); }
           if (this.simTicks < this.simMax && !this.frozen) this.startSim();
           return;
         }
@@ -223,7 +241,21 @@ Page({
           rankList: graph.degreeRank(this.networkGraph.nodes, 10).map((n) => ({ id: n.id, label: n.label, kind: n.kind, degree: n.degree, rank: n.rank }))
         });
         this.updateCounts();
+        if (this.openManageAfterLoad) { this.openManageAfterLoad = false; this.openManage(); }
         if (this.data.sheet === "manage") this.buildManageData();
+        else if (this.data.sheet === "self") this.selectSelf();
+        else if (this.data.sheet === "branch") {
+          const branch = this.treeGraph.nodeById.get(this.data.selected && this.data.selected.id);
+          if (branch) this.selectBranch(branch); else this.closeSheet();
+        } else if (this.data.sheet === "import") {
+          this.buildImportList();
+        } else if (this.data.sheet === "detail") {
+          const selected = this.data.selected;
+          const contact = selected && selected.kind === "person" && this.networkGraph.nodeById.get(`p${selected.ref}`);
+          if (contact) {
+            if (this.data.mode === "network") this.selectNode(contact.id); else this.selectContact(contact);
+          } else this.closeSheet();
+        }
         if (this.data.mode === "tree") {
           this.fitView(this.treeGraph.nodes);
         } else if (this.networkGraph.nodes.length > 0) {
@@ -808,9 +840,54 @@ Page({
       request(`/categories/${id}`, "DELETE").then(() => { wx.showToast({ title: "已删除", icon: "success" }); this.refresh(); }).catch(showError);
     } });
   },
-  addContactToCategory(e) {
+  // —— 标签树：导入已有联系人到分类 ——
+  openImport(e) {
     const id = e.currentTarget.dataset.id;
-    if (id) wx.navigateTo({ url: id === "uncat" ? "/pages/contact-form/index" : `/pages/contact-form/index?categoryId=${id}` });
+    const node = id && id !== "uncat" && this.treeGraph && this.treeGraph.nodeById.get(id);
+    if (!node || node.kind !== "category") return;
+    this.importSelected = new Set();
+    this.setData({ sheet: "import", sheetTitle: `导入到「${node.name}」`, importCategoryId: id, importKeyword: "" });
+    this.buildImportList();
+  },
+  // 已在该分类或其子分类中显示的联系人不再列出。
+  buildImportList() {
+    const id = this.data.importCategoryId;
+    if (!this.treeGraph || !this.treeGraph.nodeById.get(id)) return this.closeSheet();
+    const shown = new Set(this.getBranchContacts(id).map((c) => c.id));
+    const candidates = this.contacts.filter((c) => !shown.has(c.id));
+    const ids = new Set(candidates.map((c) => c.id));
+    this.importSelected = new Set([...(this.importSelected || [])].filter((cid) => ids.has(cid)));
+    const kw = this.data.importKeyword.trim().toLowerCase();
+    const list = candidates
+      .filter((c) => !kw || [c.name, c.organization, c.position, c.city].some((v) => (v || "").toLowerCase().includes(kw)))
+      .map((c) => ({ id: c.id, name: c.name, org: [c.organization, c.city].filter(Boolean).join(" · "), checked: this.importSelected.has(c.id) }));
+    this.setData({ importList: list, importTotal: candidates.length, importCount: this.importSelected.size });
+  },
+  onImportKeyword(e) {
+    this.setData({ importKeyword: e.detail.value });
+    this.buildImportList();
+  },
+  toggleImport(e) {
+    const id = Number(e.currentTarget.dataset.id);
+    if (this.importSelected.has(id)) this.importSelected.delete(id); else this.importSelected.add(id);
+    this.buildImportList();
+  },
+  backToBranch() {
+    const node = this.treeGraph && this.treeGraph.nodeById.get(this.data.importCategoryId);
+    if (node) this.selectBranch(node); else this.closeSheet();
+  },
+  confirmImport() {
+    if (this.importing) return;
+    const ids = [...(this.importSelected || [])];
+    if (!ids.length) return wx.showToast({ title: "请先选择联系人", icon: "none" });
+    const id = this.data.importCategoryId;
+    this.importing = true;
+    request(`/categories/${id}/contacts`, "POST", { contactIds: ids }).then((result) => {
+      wx.showToast({ title: `已导入 ${result && result.added != null ? result.added : ids.length} 位`, icon: "success" });
+      this.importSelected = new Set();
+      this.setData({ sheet: "branch", selected: { id } });
+      this.refresh();
+    }).catch(showError).then(() => { this.importing = false; });
   },
   addRecommendedCategory(e) {
     const name = e.currentTarget.dataset.name;
@@ -1038,6 +1115,5 @@ Page({
   pathNodeTap(e) { const id = e.currentTarget.dataset.id; if (id) this.focusNode(id); },
 
   // —— 空状态 ——
-  addFirst() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
   goContacts() { wx.switchTab({ url: "/pages/contacts/index" }); }
 });

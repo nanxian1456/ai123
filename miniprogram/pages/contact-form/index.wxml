@@ -1,7 +1,7 @@
 <view class="page">
   <settings-entry />
-  <view wx:if="{{loading}}" role="status">正在加载联系人资料…</view>
-  <view wx:if="{{loadFailed}}">联系人资料加载失败，重试后才能编辑。<button bindtap="retryLoad">重新加载</button></view>
+  <view wx:if="{{loading}}" class="app-state" role="status">正在加载联系人资料…</view>
+  <view wx:if="{{loadFailed}}" class="app-state app-state--error">联系人资料加载失败，重试后才能编辑。<button class="app-action" bindtap="retryLoad">重新加载</button></view>
   <view class="card ai-card">
     <view class="paste-heading"><view class="form-title">粘贴联系人信息</view><text>{{aiText.length}}/4000</text></view>
     <textarea class="paste-input" placeholder="粘贴人物介绍或联系人资料" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
@@ -37,9 +37,11 @@
     <view class="field"><text>电话</text><input data-field="phone" disabled="{{loading || loadFailed || saving}}" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
     <view class="field"><text>邮箱</text><input data-field="email" disabled="{{loading || loadFailed || saving}}" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
     <view class="tag-field-label">归入分类<text class="field-hint">可多选，再点一次取消</text></view>
+    <view class="app-help">分类用于「图谱 → 标签树」的分支，可分多层。在联系人页点「管理分类」统一管理；请先保存当前表单。</view>
     <view class="suggested-tags" wx:if="{{categoryOptions.length}}"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{categoryOptions}}" wx:key="id" data-id="{{item.id}}" bindtap="toggleCategory" aria-label="{{item.selected ? '取消归入' : '归入'}}{{item.label}}">{{item.label}}</view></view>
     <view class="category-empty" wx:else>还没有分类，可在「图谱」页的标签树中新建</view>
     <view class="tag-field-label">标签</view>
+    <view class="app-help">标签用于联系人页筛选，可多选。自定义标签在联系人页添加，标签与分类不会自动互相转换。</view>
     <view class="selected-tags" wx:if="{{selectedTags.length}}"><button class="selected-tag" wx:for="{{selectedTags}}" wx:key="*this" data-tag="{{item}}" bindtap="removeTag" aria-label="移除{{item}}标签">{{item}} <text>×</text></button></view>
     <view class="suggested-tags"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{suggestedTags}}" wx:key="name" data-tag="{{item.name}}" bindtap="toggleSuggestedTag">{{item.name}}</view></view>
     <view class="field area"><text>备注</text><textarea data-field="note" disabled="{{loading || loadFailed || saving}}" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向等" maxlength="500"/></view>

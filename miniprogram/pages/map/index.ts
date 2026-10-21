@@ -25,7 +25,7 @@ interface CityContact {
 
 const missingLabel: Record<Level, string> = { country: "未设置国家", province: "未设置省份", city: "未设置城市" };
 const LEVEL_TITLE: Record<Level, string> = { country: "国家 / 地区", province: "省份 / 州", city: "城市" };
-const PALETTE = ["#1677d2", "#16a889", "#e6a23c", "#f56c6c", "#8e44ad", "#2c3e50", "#3498db", "#1abc9c"];
+const PALETTE = ["#2563eb", "#16a889", "#e6a23c", "#f56c6c", "#8e44ad", "#2c3e50", "#3498db", "#1abc9c"];
 function avatarColor(name: string) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
@@ -67,7 +67,7 @@ function buildJiangsuPolygons() {
     const points = ring.filter((_: number[], index: number) => index % stride === 0 || index === ring.length - 1)
       .map((point: number[]) => ({ longitude: point[0], latitude: point[1] }));
     if (points.length && (points[0].longitude !== points[points.length - 1].longitude || points[0].latitude !== points[points.length - 1].latitude)) points.push(points[0]);
-    return { points, strokeWidth: 3, strokeColor: "#1677D2", fillColor: "#1677D20D", zIndex: 2 };
+    return { points, strokeWidth: 3, strokeColor: "#2563EB", fillColor: "#2563EB0D", zIndex: 2 };
   });
 }
 
@@ -227,6 +227,10 @@ Page({
     includePoints: [] as any[],
     mapScale: 5,
     mapError: "",
+    coordinateLoading: false,
+    mapWaiting: false,
+    mapSlow: false,
+    mapLoadId: 0,
     globeError: "",
     provincePolygons: [] as any[],
     cityContacts: [] as CityContact[],
@@ -245,7 +249,8 @@ Page({
         camera = new THREE.PerspectiveCamera(32, canvasSize.width / canvasSize.height, 0.1, 100);
         camera.position.z = 3.1;
         renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-        renderer.setPixelRatio(wx.getSystemInfoSync().pixelRatio);
+        // wx.getSystemInfoSync is deprecated; getWindowInfo exists from base library 2.20.1.
+        renderer.setPixelRatio((typeof wx.getWindowInfo === "function" ? wx.getWindowInfo().pixelRatio : 0) || 2);
         renderer.setSize(canvasSize.width, canvasSize.height, false);
         globeGroup = new THREE.Group(); countryGroup = new THREE.Group(); markerGroup = new THREE.Group();
         globeGroup.add(countryGroup); globeGroup.add(markerGroup); scene.add(globeGroup);
@@ -283,12 +288,43 @@ Page({
 
   onShow() { if (renderer && !frame) animate(); this.load(); },
 
+  mapTimer: null as ReturnType<typeof setTimeout> | null,
+  stopMapWait() {
+    if (this.mapTimer !== null) clearTimeout(this.mapTimer);
+    this.mapTimer = null;
+    this.setData({ mapWaiting: false, mapSlow: false, mapLoadId: 0 });
+  },
+  waitForMap(current: number) {
+    this.setData({ mapWaiting: true, mapSlow: false, mapLoadId: current });
+    this.mapTimer = setTimeout(() => {
+      if (current !== loadId || this.data.mapLoadId !== current || !this.data.mapWaiting) return;
+      this.setData({ mapWaiting: false, mapSlow: true });
+      this.mapTimer = null;
+    }, 8000);
+  },
+  onMapUpdated(event: any) {
+    if (Number(event.currentTarget.dataset.loadId) !== loadId || this.data.mapLoadId !== loadId) return;
+    if (this.mapTimer !== null) clearTimeout(this.mapTimer);
+    this.mapTimer = null;
+    this.setData({ mapWaiting: false, mapSlow: false });
+  },
+  onMapError(event: any) {
+    if (Number(event.currentTarget.dataset.loadId) !== loadId || this.data.mapLoadId !== loadId) return;
+    this.stopMapWait();
+    this.setData({ mapError: "地图组件加载失败，请检查网络后重新加载；下方联系人列表仍可使用" });
+  },
+  retryMap() { if (!this.data.coordinateLoading && !this.data.loading) return this.load(); },
+
   onHide() {
+    loadId++;
+    this.stopMapWait();
     if (frame && canvas) canvas.cancelAnimationFrame(frame);
     frame = null; cancelFly();
   },
 
   onUnload() {
+    loadId++;
+    this.stopMapWait();
     if (frame && canvas) canvas.cancelAnimationFrame(frame);
     cancelFly();
     renderer?.dispose();
@@ -298,8 +334,10 @@ Page({
   async load() {
     const { level, country, province, city, citySelected } = this.data;
     const current = ++loadId;
+    this.stopMapWait();
     this.setData({
       loading: true, error: "", regions: [], filteredRegions: [], total: 0,
+      coordinateLoading: level !== "country",
       center: null, markers: [], includePoints: [], mapError: "",
       cityContacts: [], filteredContacts: [], keyword: "", levelTitle: citySelected ? "联系人" : LEVEL_TITLE[level],
       provincePolygons: level === "city" && !citySelected && isJiangsu(province) ? buildJiangsuPolygons() : []
@@ -330,17 +368,39 @@ Page({
       if (current !== loadId) return;
       this.setData({ loading: false, error: "地区数据加载失败" });
       showError(error);
+    } finally {
+      if (current === loadId) {
+        this.setData({ coordinateLoading: false });
+        if (level !== "country" && this.data.center && this.data.includePoints.length) this.waitForMap(current);
+      }
     }
   },
 
   async loadLocations(current: number, level: Level, country: string, province: string, city: string) {
     try {
-      const result = await request<{ center: { latitude: number; longitude: number }; markers: { name: string; count: number; latitude: number; longitude: number }[] }>(`/maps/locations?level=${level}&country=${encodeURIComponent(country)}&province=${encodeURIComponent(province)}&city=${encodeURIComponent(city)}`);
+      const regions = city ? [] : this.data.regions.filter(item => item.name.trim());
+      const batches: string[][] = [];
+      for (let index = 0; index < regions.length; index += 30) {
+        batches.push(regions.slice(index, index + 30).map(item => item.name));
+      }
+      if (!batches.length) batches.push([]);
+      let center: { latitude: number; longitude: number } | null = null;
+      const points = new Map<string, { latitude: number; longitude: number }>();
+      for (const names of batches) {
+        const result = await request<{ center: { latitude: number; longitude: number }; markers: { name: string; latitude: number; longitude: number }[] }>(
+          "/maps/locations", "POST", { level, country, province, city, regions: names });
+        if (current !== loadId) return;
+        center = result.center;
+        result.markers.forEach(point => {
+          if (Number.isFinite(point.latitude) && Number.isFinite(point.longitude)) points.set(point.name, point);
+        });
+      }
       if (current !== loadId) return;
-      const markers = result.markers.map((item, id) => ({
+      // The server supplies coordinates only; names, membership and counts come from this load's local snapshot.
+      const markers = regions.filter(item => points.has(item.name)).map((item, id) => ({
         id,
-        latitude: item.latitude,
-        longitude: item.longitude,
+        latitude: points.get(item.name)!.latitude,
+        longitude: points.get(item.name)!.longitude,
         iconPath: "/assets/images/map-marker.png",
         width: 28,
         height: 28,
@@ -350,7 +410,7 @@ Page({
         label: { content: `${item.name} ${item.count}人`, color: "#17324e", fontSize: 11, bgColor: "#ffffff", borderRadius: 4, padding: 4, anchorX: 0, anchorY: -32 }
       }));
       const includePoints = markers.map(m => ({ latitude: m.latitude, longitude: m.longitude }));
-      if (result.center) includePoints.push({ latitude: result.center.latitude, longitude: result.center.longitude });
+      if (center) includePoints.push({ latitude: center.latitude, longitude: center.longitude });
       if (level === "city" && !this.data.citySelected && isJiangsu(province) && this.data.provincePolygons.length) {
         const points = this.data.provincePolygons.flatMap((polygon: any) => polygon.points);
         const longitudes = points.map((point: any) => point.longitude);
@@ -360,7 +420,9 @@ Page({
         includePoints.push({ latitude: south, longitude: west }, { latitude: north, longitude: east });
       }
       const mapScale = level === "province" || level === "city" && !this.data.citySelected && isJiangsu(province) ? 6 : 9;
-      this.setData({ center: result.center, markers, includePoints, mapScale });
+      const unresolved = regions.length - markers.length;
+      this.setData({ center, markers, includePoints, mapScale,
+        mapError: unresolved ? `${unresolved} 个地区暂未定位，列表人数仍按本机联系人统计` : "" });
     } catch (error) {
       if (current === loadId) this.setData({ mapError: error instanceof Error ? error.message : "地图定位暂不可用" });
     }
@@ -371,10 +433,14 @@ Page({
       const items = await request<{ id: number; name: string; organization: string; position: string; tags: string[]; initial: string; latitude?: number | null; longitude?: number | null }[]>(`/contacts/directory?country=${encodeURIComponent(country)}&province=${encodeURIComponent(province)}&city=${encodeURIComponent(this.data.city)}`);
       if (current !== loadId) return;
       const contacts = items.map(item => ({ ...item, color: avatarColor(item.name) }));
-      const center = this.data.center;
+      const cityCenter = this.data.center;
+      const hasLocation = (item: typeof items[number]) => typeof item.latitude === "number" && typeof item.longitude === "number" &&
+        Number.isFinite(item.latitude) && Number.isFinite(item.longitude) && Math.abs(item.latitude) <= 90 && Math.abs(item.longitude) <= 180;
+      const located = items.find(hasLocation);
+      const center = cityCenter || (located ? { latitude: located.latitude!, longitude: located.longitude! } : null);
       let markers: any[] = [];
       if (center) {
-        markers = contacts.map((item, index) => {
+        markers = contacts.filter(item => cityCenter || hasLocation(item)).map((item, index) => {
           const offset = contactOffset(index);
           return {
             id: Number(item.id),
@@ -392,7 +458,7 @@ Page({
         });
       }
       const includePoints = center ? [{ latitude: center.latitude, longitude: center.longitude }, ...markers.map(m => ({ latitude: m.latitude, longitude: m.longitude }))] : [];
-      this.setData({ cityContacts: contacts, filteredContacts: contacts, markers, includePoints, mapScale: 11 });
+      this.setData({ center, cityContacts: contacts, filteredContacts: contacts, markers, includePoints, mapScale: 11 });
     } catch (error) {
       if (current === loadId) this.setData({ mapError: error instanceof Error ? error.message : "联系人定位暂不可用" });
     }

@@ -71,6 +71,7 @@ Page({
         categoryOptions: [],
     },
     categoryList: [],
+    categoriesLoaded: false,
     onLoad(query) {
         if (query.id)
             this.setData({ id: query.id });
@@ -85,13 +86,30 @@ Page({
         try {
             const result = await (0, api_1.request)("/categories");
             this.categoryList = flattenCategories((result && result.tree) || []);
+            // Only a well-formed answer is trusted for pruning deleted classifications.
+            this.categoriesLoaded = !!result && Array.isArray(result.tree);
             this.refreshCategoryOptions();
         }
         catch (error) {
             (0, api_1.showError)(error);
         }
     },
+    // Drops classifications that no longer exist (e.g. the category was deleted in the graph
+    // after the form was opened from it), so saving does not fail with "分类数据无效".
+    pruneDeletedCategories() {
+        const current = this.data.categoryIds;
+        if (!this.categoriesLoaded || !current || !current.length)
+            return false;
+        const existing = new Set(this.categoryList.map((item) => item.id));
+        const kept = current.filter((id) => existing.has(id));
+        if (kept.length === current.length)
+            return false;
+        this.setData({ categoryIds: kept });
+        wx.showToast({ title: "原分类已被删除，已取消该归类", icon: "none" });
+        return true;
+    },
     refreshCategoryOptions() {
+        this.pruneDeletedCategories();
         const selected = new Set(this.data.categoryIds || []);
         this.setData({
             categoryOptions: this.categoryList.map((item) => ({
@@ -362,6 +380,21 @@ Page({
                 title: "标签最多10个，每个不超过20字",
                 icon: "none",
             });
+        this.setData({ saving: true });
+        if (this.data.categoryIds && this.data.categoryIds.length) {
+            try {
+                const result = await (0, api_1.request)("/categories");
+                if (result && Array.isArray(result.tree)) {
+                    this.categoryList = flattenCategories(result.tree);
+                    this.categoriesLoaded = true;
+                    if (this.pruneDeletedCategories())
+                        this.refreshCategoryOptions();
+                }
+            }
+            catch (_) {
+                /* The save below reports any remaining problem. */
+            }
+        }
         const payload = {
             ...form,
             name: form.name.trim(),
@@ -369,7 +402,6 @@ Page({
             ...(this.data.categoryIds ? { categoryIds: [...this.data.categoryIds] } : {}),
         };
         delete payload.tagsText;
-        this.setData({ saving: true });
         try {
             const contacts = await (0, api_1.request)("/contacts");
             const matches = duplicates.findPotentialDuplicates(contacts, payload, this.data.id);
