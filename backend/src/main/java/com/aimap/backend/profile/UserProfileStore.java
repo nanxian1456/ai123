@@ -16,6 +16,7 @@ public class UserProfileStore {
     private final Map<String, UserProfile> testProfiles;
     private final SecureRandom random = new SecureRandom();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public UserProfileStore(UserProfileRepository repository) { this.repository = repository; this.testProfiles = new ConcurrentHashMap<>(); }
     public UserProfileStore() { this.repository = null; this.testProfiles = new ConcurrentHashMap<>(); }
 
@@ -83,6 +84,15 @@ public class UserProfileStore {
     public UserProfile findByContactCode(String contactCode) {
         if (repository == null) return null;
         return repository.findByContactCode(contactCode).map(this::toProfile).orElse(null);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = "profiles", allEntries = true)
+    public String resetImportCode(String ownerId) {
+        if (repository == null) throw new IllegalStateException("导入码重置需要数据库");
+        UserProfileEntity entity = getOrCreate(ownerId);
+        entity.setContactCode(newContactCode());
+        return repository.saveAndFlush(entity).getContactCode();
     }
 
     private UserProfileEntity getOrCreate(String ownerId) {

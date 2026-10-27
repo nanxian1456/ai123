@@ -62,9 +62,11 @@ test("a failed write keeps the previous data and leaves no partial chunks", () =
 test("old chunk generations are removed after a successful write", () => {
   reset();
   local.write(OWNER, dataset(10));
-  const previousKeys = [...store.keys()].filter(key => key !== prefix);
+  // The change-time marker is not a data shard and is meant to persist.
+  const shardKeys = () => [...store.keys()].filter(key => key !== prefix && !key.startsWith("ai-network-data-changed:"));
+  const previousKeys = shardKeys();
   local.handle(OWNER, "/contacts/1", "DELETE");
-  const keys = [...store.keys()].filter(key => key !== prefix);
+  const keys = shardKeys();
   assert.ok(keys.length > 0);
   assert.ok(previousKeys.every(key => !store.has(key)));
   assert.equal(local.read(OWNER).contacts.length, 9);

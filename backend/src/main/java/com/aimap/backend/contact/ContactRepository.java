@@ -13,6 +13,7 @@ public interface ContactRepository extends JpaRepository<ContactEntity, Long> {
     List<ContactEntity> findByOwnerIdOrderByIdAsc(String ownerId);
     Optional<ContactEntity> findByOwnerIdAndId(String ownerId, Long id);
     long countByOwnerId(String ownerId);
+    void deleteByOwnerId(String ownerId);
 
     @Query(value = """
             select distinct c from ContactEntity c left join c.tags t

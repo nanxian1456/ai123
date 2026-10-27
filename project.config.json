@@ -21,7 +21,13 @@
   },
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "node_modules" },
+      { "type": "suffix", "value": ".ts" },
+      { "type": "file", "value": "tsconfig.json" },
+      { "type": "file", "value": "package-lock.json" },
+      { "type": "file", "value": "assets/data/README.md" }
+    ],
     "include": []
   },
   "editorSetting": {}

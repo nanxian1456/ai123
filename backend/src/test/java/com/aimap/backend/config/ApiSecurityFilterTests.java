@@ -39,4 +39,9 @@ class ApiSecurityFilterTests {
         for (int i = 0; i < 10001; i++) execute(filter,"GET","/api/contacts","Bearer random-"+i,"127.0.0.1");
         assertEquals(200, execute(filter,"GET","/api/contacts",null,"192.0.2.12").getStatus());
     }
+    @Test void recoveryAndLoginShareTheSameAnonymousWechatBudget() throws Exception {
+        ApiSecurityFilter filter = new ApiSecurityFilter(100, 100, 100, 100);
+        for (int i=0; i<10; i++) assertEquals(200, execute(filter,"POST","/api/auth/account-deletion-status",null,"192.0.2.20").getStatus());
+        assertEquals(429, execute(filter,"POST","/api/auth/wechat-login",null,"192.0.2.20").getStatus());
+    }
 }

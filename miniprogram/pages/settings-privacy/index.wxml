@@ -1,13 +1,10 @@
 <view class="page">
-  <view class="privacy-intro">新用户默认所有资料均不公开。公开昵称后，持有你的导入码的人可以获取你选择公开的文字资料。头像仅保存在本机。</view>
-  <view wx:if="{{profile.publicationStatus === 'pending' || profile.publicationStatus === 'error'}}" role="status">公开状态尚未确认，请联网重试同步。<button bindtap="retryPublication" loading="{{savingVisibility}}" disabled="{{savingVisibility}}">重试同步</button></view>
-  <view class="card visibility-card" wx:if="{{profile}}">
-    <view class="visibility-row" wx:for="{{visibilityItems}}" wx:key="field">
-      <view><text>{{item.label}}</text><text>{{savingVisibility || profile.publicationStatus === 'pending' || profile.publicationStatus === 'error' ? '同步待确认' : (item.enabled ? '已公开' : '未公开')}}</text></view>
-      <switch checked="{{item.enabled}}" color="#1684c3" data-field="{{item.field}}" bindchange="changeVisibility" disabled="{{savingVisibility}}"/>
-    </view>
+  <view class="privacy-intro">新用户默认所有资料均不公开。头像、联系人和关系只保存在本机。</view>
+  <view class="card consent-card">
+    <view class="consent-row" bindtap="openPublication"><view><text>资料公开范围</text><text class="consent-sub">{{profile ? publication.title : (loading ? '读取中…' : '状态暂不可用')}} · 在“导入码与公开资料”中管理</text></view><text class="chevron">›</text></view>
   </view>
-  <view class="empty" wx:if="{{!profile}}">正在加载隐私设置</view>
+  <view class="empty" wx:if="{{loading && !profile}}">正在加载隐私设置</view>
+  <view class="app-state app-state--error" wx:if="{{loadError}}">{{loadError}}<button class="app-action" bindtap="load" disabled="{{loading}}">重新加载</button></view>
   <view class="section-title">协议与授权</view>
   <view class="card consent-card">
     <view class="consent-row" bindtap="openTerms"><text>用户协议</text><text class="chevron">›</text></view>
@@ -19,4 +16,5 @@
     </view>
     <view class="consent-row danger" bindtap="withdrawAll"><text>撤回全部同意并退出登录</text><text class="chevron">›</text></view>
   </view>
+  <view class="card withdrawal-panel" wx:if="{{withdrawalOptions}}"><view class="section-title">撤回前，确认公开资料</view><view class="app-help">撤回同意会退出登录，但不会自动撤下已公开的资料。可先前往公开设置关闭昵称公开；也可保留公开资料并继续撤回。本机联系人不会删除。</view><button class="ui-secondary" bindtap="openPublication">先管理公开资料</button><button class="danger-button" bindtap="confirmWithdrawAll">继续撤回并退出</button><button class="ui-link" bindtap="cancelWithdrawal">取消</button></view>
 </view>

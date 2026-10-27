@@ -18,16 +18,21 @@ const API_BASE_URLS: Record<string, string | undefined> = {
   release: localConfig.release,
 };
 
+// wx.getSystemInfoSync is deprecated; getDeviceInfo (base library 2.20.1+) is preferred,
+// with the old API kept only as a fallback for older WeChat versions.
+function currentPlatform(): string {
+  if (typeof wx.getDeviceInfo === "function") return wx.getDeviceInfo().platform;
+  if (typeof wx.getSystemInfoSync === "function") return wx.getSystemInfoSync().platform;
+  return "devtools";
+}
+
 export function getApiBaseUrl(): string {
   const account =
     typeof wx.getAccountInfoSync === "function"
       ? wx.getAccountInfoSync()
       : null;
   const environment = account?.miniProgram?.envVersion || "develop";
-  const platform =
-    typeof wx.getSystemInfoSync === "function"
-      ? wx.getSystemInfoSync().platform
-      : "devtools";
+  const platform = currentPlatform();
   const device = environment === "develop" && platform !== "devtools";
   const url = (
     device ? localConfig.deviceDevelop || "" : API_BASE_URLS[environment] || ""

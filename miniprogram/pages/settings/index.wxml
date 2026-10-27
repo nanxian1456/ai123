@@ -1,22 +1,9 @@
-<view class="page settings-menu">
-  <view class="card module-row" bindtap="openProfile">
-    <view class="module-icon profile-icon">我</view>
-    <view class="module-name">个人资料</view>
-    <text class="chevron">›</text>
-  </view>
-  <view class="card module-row" bindtap="openSecurity">
-    <view class="module-icon security-icon">安</view>
-    <view class="module-name">账号安全</view>
-    <text class="chevron">›</text>
-  </view>
-  <view class="card module-row" bindtap="openFriends">
-    <view class="module-icon friends-icon">友</view>
-    <view class="module-name">朋友权限</view>
-    <text class="chevron">›</text>
-  </view>
-  <view class="card module-row" bindtap="openPrivacy">
-    <view class="module-icon privacy-icon">隐</view>
-    <view class="module-name">个人隐私</view>
-    <text class="chevron">›</text>
-  </view>
+<view class="page ui-page settings-menu"><view class="ui-page-heading"><view class="ui-eyebrow">按你的习惯使用</view><view class="ui-title">设置</view><view class="ui-subtitle">个人资料、导入码、账号安全与隐私授权。</view></view>
+  <view wx:if="{{summaryError}}" class="app-state app-state--warning">{{summaryError}}<button class="app-action" bindtap="onShow" disabled="{{loading}}">重试状态</button></view>
+  <view class="card module-row" bindtap="openProfile"><view class="module-icon">我</view><view class="module-copy"><view class="module-name">个人资料</view><text>编辑昵称、单位与个人介绍</text></view><text class="module-chevron">›</text></view>
+  <view class="card module-row" bindtap="openSecurity"><view class="module-icon">安</view><view class="module-copy"><view class="module-name">账号与安全</view><text>备份恢复、退出登录与注销账号</text><text wx:if="{{backupLabel}}" class="module-status">上次备份：{{backupLabel}}</text><text wx:if="{{backupWarning}}" class="module-warning">{{backupWarning}}</text></view><text class="module-chevron">›</text></view>
+  <view class="card module-row" bindtap="openFriends"><view class="module-icon">友</view><view class="module-copy"><view class="module-name">导入码与公开资料</view><text>分享导入码，选择朋友能导入的资料</text><text wx:if="{{publicationLabel}}" class="module-status">{{publicationLabel}}</text></view><text class="module-chevron">›</text></view>
+  <view class="card module-row" bindtap="openPrivacy"><view class="module-icon">隐</view><view class="module-copy"><view class="module-name">隐私与授权</view><text>用户协议、隐私政策与 AI 授权</text></view><text class="module-chevron">›</text></view>
+  <view class="app-help">概览来自本机最近记录；服务器当前公开内容可在公开资料预览中确认。</view>
+  <view class="card module-row" bindtap="openHelp"><view class="module-icon">助</view><view class="module-copy"><view class="module-name">帮助与反馈</view><text>使用说明、版本、权限管理与问题反馈</text></view><text class="module-chevron">›</text></view>
 </view>

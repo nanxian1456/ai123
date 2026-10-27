@@ -16,6 +16,10 @@ export interface LocalContact {
   note?: string;
   tags?: string[];
   categoryIds?: string[];
+  country?: string;
+  address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 export interface LocalData {
   version: number;
@@ -31,8 +35,11 @@ export interface LocalData {
 }
 export function read(ownerId: string): LocalData | null;
 export function write(ownerId: string, value: LocalData): LocalData;
+export function write(ownerId: string, value: null): null;
 export function handle(ownerId: string, path: string, method?: string, payload?: any): any;
 export function migrate(ownerId: string, data: any): LocalData;
 export function key(ownerId: string): string;
+export function changedAt(ownerId: string): number;
+export function forgetChanged(ownerId: string): void;
 export function initial(name: string): string;
 export function storageUsage(): { usedKB: number; limitKB: number } | null;

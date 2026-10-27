@@ -1,5 +1,8 @@
 const { request, showError } = require("../../utils/api");
 const graph = require("../../utils/graph");
+function currentOwner() {
+  try { return wx.getStorageSync("ai-network-owner-id") || ""; } catch (_) { return ""; }
+}
 
 // 关系类型 → 颜色（稳定哈希）
 const REL_PALETTE = ["#2563eb", "#18a88e", "#d89134", "#e67ba7", "#7c3aed", "#0ea5e9", "#ef6c4d", "#5b8c5a", "#94a3b8", "#c2410c"];
@@ -52,6 +55,7 @@ function promptName(title, placeholder) {
 Page({
   data: {
     loading: true,
+    loadError: "", canvasError: "",
     empty: false,
     mode: "tree", // 'tree' 标签树 | 'network' 关系网
     nodeCount: 0,
@@ -74,7 +78,12 @@ Page({
     manageDismissed: [],
     focusedBranch: "",
     focusedName: "",
-    searchResults: []
+    searchResults: [],
+    importCategoryId: "",
+    importKeyword: "",
+    importList: [],
+    importTotal: 0,
+    importCount: 0
   },
 
   // —— 非渲染状态 ——
@@ -91,6 +100,8 @@ Page({
   canvasReady: false,
   pendingLoad: false,
   dataSig: "",
+  ownerId: "",
+  canvasInitPromise: null,
   visible: true,
   unloaded: false,
   loadId: 0,
@@ -138,7 +149,21 @@ Page({
     this.setData({ filters: { person: true, org: true, city: true }, relFilter: {} });
   },
   onReady() { this.initCanvas(); },
-  onShow() { this.visible = true; if (this.canvasReady) this.loadAll(); else this.pendingLoad = true; },
+  onShow() {
+    this.visible = true;
+    if (this.ownerId && this.ownerId !== currentOwner()) this.clearGraphData();
+    const entry = wx.getStorageSync("graph-category-entry");
+    if (entry) {
+      wx.removeStorageSync("graph-category-entry");
+      if (entry.ownerId && entry.ownerId === wx.getStorageSync("ai-network-owner-id") && entry.expiresAt > Date.now()) {
+        this.openManageAfterLoad = true;
+        this.setData({ mode: "tree", sheet: "" });
+      }
+    }
+    if (this.canvasReady) return this.loadAll();
+    this.pendingLoad = true;
+    if (this.data.canvasError) return this.initCanvas();
+  },
   onHide() {
     this.visible = false;
     this.simRunning = false;
@@ -149,41 +174,94 @@ Page({
   },
   onUnload() { this.onHide(); this.unloaded = true; this.loadId++; },
 
+  clearGraphData() {
+    this.loadId++; this.simEpoch++; this.simRunning = false;
+    this.dataSig = ""; this.ownerId = "";
+    this.networkGraph = null; this.treeGraph = null; this.profile = null;
+    this.categoryTree = []; this.contacts = []; this.relationships = [];
+    this.networkEdgePairs = null; this.networkAdjacency = null;
+    this.recommended = []; this.dismissed = []; this.importSelected = new Set();
+    this.selectedId = null; this.selectedEdgeId = null; this.selectedBranch = null; this.focusedBranch = null;
+    this.isolation = null; this.pathNodes = null; this.pathEdges = null; this.pathMode = false;
+    for (const name of ["_branchTimer", "_searchTimer", "clearHintTimer"]) { if (this[name]) clearTimeout(this[name]); this[name] = null; }
+    this.setData({ loading: false, empty: false, sheet: "", selected: null, profile: { nickname: "自己" },
+      nodeCount: 0, edgeCount: 0, keyword: "", searchResults: [], hint: "", rankList: [], relTypes: [],
+      focusedBranch: "", focusedName: "", importList: [], importCount: 0, importTotal: 0,
+      manageCategories: [], manageRecommended: [], manageDismissed: [],
+      filters: { person: true, org: true, city: true }, relFilter: {} });
+    if (this.ctx && typeof this.ctx.clearRect === "function") this.ctx.clearRect(0, 0, this.cssW, this.cssH);
+  },
+  canInteract() {
+    if (this.ownerId && this.ownerId !== currentOwner()) {
+      this.clearGraphData(); this.setData({ loadError: "账号已切换，请重新加载图谱" }); return false;
+    }
+    return !this.unloaded && !this.data.loading && !this.data.loadError && !this.data.canvasError && !!this.treeGraph && !!this.networkGraph;
+  },
+  operationOwner() {
+    if (this.canInteract() && this.ownerId && this.ownerId === currentOwner()) return this.ownerId;
+    showError(new Error("图谱尚未就绪或账号已切换，请重新加载后操作")); return "";
+  },
+  writeForOwner(owner, path, method, body) {
+    if (!owner || owner !== currentOwner() || owner !== this.ownerId || this.unloaded || !this.visible) {
+      if (this.ownerId && this.ownerId !== currentOwner()) { this.clearGraphData(); this.setData({ loadError: "账号已切换，请重新加载图谱" }); }
+      return Promise.reject(new Error("账号或页面已变化，原操作已取消，请重新加载图谱"));
+    }
+    return request(path, method, body).then(result => {
+      if (owner !== currentOwner() || owner !== this.ownerId || this.unloaded) throw new Error("操作结果属于原账号，请刷新当前图谱");
+      return result;
+    });
+  },
   initCanvas() {
-    wx.createSelectorQuery()
-      .select("#graph")
-      .fields({ node: true, size: true, rect: true })
-      .exec((res) => {
-        if (!res || !res[0] || !res[0].node) return;
-        const info = res[0];
-        const canvas = info.node;
-        const ctx = canvas.getContext("2d");
-        const dpr = (typeof wx.getWindowInfo === "function" ? wx.getWindowInfo().pixelRatio : 0) || 2;
-        canvas.width = info.width * dpr;
-        canvas.height = info.height * dpr;
-        ctx.scale(dpr, dpr);
-        this.canvas = canvas;
-        this.ctx = ctx;
-        this.dpr = dpr;
-        this.cssW = info.width;
-        this.cssH = info.height;
-        this.rectLeft = info.left;
-        this.rectTop = info.top;
-        this.canvasReady = true;
-        if (this.pendingLoad) { this.pendingLoad = false; this.loadAll(); }
-        else if (this.networkGraph || this.treeGraph) this.render();
+    if (this.canvasInitPromise) return this.canvasInitPromise;
+    this.setData({ loading: true, canvasError: "" });
+    this.canvasInitPromise = new Promise((resolve, reject) => {
+      wx.createSelectorQuery().select("#graph").fields({ node: true, size: true, rect: true }).exec(res => {
+        if (this.unloaded) { resolve(false); return; }
+        try {
+          const info = res && res[0];
+          if (!info || !info.node || !(info.width > 0) || !(info.height > 0)) throw new Error("画布暂时无法初始化，请重试");
+          const canvas = info.node, ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("当前设备未能创建图谱画布，请重试");
+          const dpr = (typeof wx.getWindowInfo === "function" ? wx.getWindowInfo().pixelRatio : 0) || 2;
+          canvas.width = info.width * dpr; canvas.height = info.height * dpr; ctx.scale(dpr, dpr);
+          this.canvas = canvas; this.ctx = ctx; this.dpr = dpr;
+          this.cssW = info.width; this.cssH = info.height; this.rectLeft = info.left; this.rectTop = info.top;
+          this.canvasReady = true; this.setData({ canvasError: "" });
+          if (this.pendingLoad && this.visible) {
+            this.pendingLoad = false; this.loadAll().then(() => resolve(true), reject);
+          } else { this.setData({ loading: false }); this.render(); resolve(true); }
+        } catch (error) { reject(error); }
       });
+    }).catch(error => {
+      if (!this.unloaded) { this.canvasReady = false; this.clearGraphData(); this.setData({ canvasError: error instanceof Error ? error.message : "画布初始化失败，请重试", loading: false }); }
+      return false;
+    }).finally(() => { this.canvasInitPromise = null; });
+    return this.canvasInitPromise;
+  },
+  retryGraph() {
+    if (this.unloaded || this.canvasInitPromise) return this.canvasInitPromise;
+    this.setData({ loadError: "", canvasError: "" });
+    if (this.canvasReady && this.canvas && this.ctx) return this.loadAll();
+    this.pendingLoad = true; return this.initCanvas();
   },
 
   loadAll() {
+    const owner = currentOwner();
+    if (this.ownerId && this.ownerId !== owner) this.clearGraphData();
     const loadId = ++this.loadId;
-    this.setData({ loading: true });
+    // A same-owner snapshot stays usable while checking for changes in the background.
+    const usable = this.ownerId === owner && this.treeGraph && this.networkGraph && !this.data.loadError && !this.data.canvasError;
+    this.setData({ loading: !usable, loadError: "" });
     return Promise.all([request("/me"), request("/categories"), request("/contacts"), request("/relationships")])
       .then(([profile, catRes, contacts, relationships]) => {
         if (this.unloaded || loadId !== this.loadId) return;
+        const activeOwner = currentOwner();
+        if (!activeOwner || (owner && owner !== activeOwner) || !profile || profile.ownerId !== activeOwner) throw new Error("账号已切换，请重新加载图谱");
+        this.ownerId = activeOwner;
         const sig = JSON.stringify([profile, catRes, contacts, relationships]);
         if (sig === this.dataSig && this.networkGraph && this.treeGraph) {
           this.setData({ loading: false }); this.updateCounts(); this.render();
+          if (this.openManageAfterLoad) { this.openManageAfterLoad = false; this.openManage(); }
           if (this.simTicks < this.simMax && !this.frozen) this.startSim();
           return;
         }
@@ -223,7 +301,21 @@ Page({
           rankList: graph.degreeRank(this.networkGraph.nodes, 10).map((n) => ({ id: n.id, label: n.label, kind: n.kind, degree: n.degree, rank: n.rank }))
         });
         this.updateCounts();
+        if (this.openManageAfterLoad) { this.openManageAfterLoad = false; this.openManage(); }
         if (this.data.sheet === "manage") this.buildManageData();
+        else if (this.data.sheet === "self") this.selectSelf();
+        else if (this.data.sheet === "branch") {
+          const branch = this.treeGraph.nodeById.get(this.data.selected && this.data.selected.id);
+          if (branch) this.selectBranch(branch); else this.closeSheet();
+        } else if (this.data.sheet === "import") {
+          this.buildImportList();
+        } else if (this.data.sheet === "detail") {
+          const selected = this.data.selected;
+          const contact = selected && selected.kind === "person" && this.networkGraph.nodeById.get(`p${selected.ref}`);
+          if (contact) {
+            if (this.data.mode === "network") this.selectNode(contact.id); else this.selectContact(contact);
+          } else this.closeSheet();
+        }
         if (this.data.mode === "tree") {
           this.fitView(this.treeGraph.nodes);
         } else if (this.networkGraph.nodes.length > 0) {
@@ -235,7 +327,7 @@ Page({
           this.render();
         }
       })
-      .catch((error) => { if (!this.unloaded && loadId === this.loadId) { this.setData({ loading: false }); showError(error); } });
+      .catch((error) => { if (!this.unloaded && loadId === this.loadId) { this.clearGraphData(); this.setData({ loading: false, loadError: error instanceof Error ? error.message : "图谱加载失败，请重试" }); showError(error); } });
   },
 
   updateCounts() {
@@ -257,6 +349,7 @@ Page({
   },
 
   switchMode(e) {
+    if (!this.canInteract()) return;
     const mode = e.currentTarget.dataset.mode;
     if (mode === this.data.mode) return;
     this.setData({ mode, sheet: "", focusedBranch: "", focusedName: "", searchResults: [] });
@@ -286,6 +379,7 @@ Page({
 
   // —— 力导向动画（仅关系网）——
   startSim() {
+    if (!this.canvasReady || !this.canvas || typeof this.canvas.requestAnimationFrame !== "function") return;
     if (!this.visible || this.unloaded || this.simRunning || this.data.mode !== "network") return;
     this.simRunning = true;
     const epoch = ++this.simEpoch;
@@ -311,7 +405,8 @@ Page({
   screenToWorld(x, y) { return { x: (x - this.offsetX) / this.scale, y: (y - this.offsetY) / this.scale }; },
 
   fitView(nodes) {
-    const list = nodes || (this.data.mode === "tree" ? this.treeGraph.nodes : this.networkGraph.nodes);
+    const value = this.data.mode === "tree" ? this.treeGraph : this.networkGraph;
+    const list = nodes || (value && value.nodes);
     if (!list || list.length === 0) return;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     list.forEach((n) => {
@@ -515,6 +610,7 @@ Page({
 
   // —— 触摸交互 ——
   onTouchStart(e) {
+    if (!this.canInteract()) return;
     const touches = e.touches || [];
     if (touches.length >= 2) {
       this._pinching = true;
@@ -656,7 +752,7 @@ Page({
     if (this.data.sheet) this.closeSheet();
   },
 
-  nodesForHit() { return this.data.mode === "tree" ? this.treeGraph.nodes : this.networkGraph.nodes; },
+  nodesForHit() { const value = this.data.mode === "tree" ? this.treeGraph : this.networkGraph; return value ? value.nodes : []; },
   hitNode(x, y) {
     const nodes = this.nodesForHit();
     if (!nodes) return null;
@@ -773,6 +869,7 @@ Page({
   },
 
   viewBranchContact(e) {
+    if (!this.canInteract()) return;
     const id = e.currentTarget.dataset.id;
     if (id != null) wx.navigateTo({ url: `/pages/contact-detail/index?id=${id}` });
   },
@@ -784,38 +881,90 @@ Page({
 
   // —— 标签树：分类管理 ——
   async addTopCategory() {
+    const owner = this.operationOwner(); if (!owner) return;
     const name = await promptName("新建顶层分类", "如：公司 / 大学 / 朋友");
     if (!name) return;
-    request("/categories", "POST", { name }).then(() => { wx.showToast({ title: "已添加", icon: "success" }); this.refresh(); }).catch(showError);
+    this.writeForOwner(owner, "/categories", "POST", { name }).then(() => { wx.showToast({ title: "已添加", icon: "success" }); this.refresh(); }).catch(showError);
   },
   async addChildCategory(e) {
+    const owner = this.operationOwner(); if (!owner) return;
     const id = e.currentTarget.dataset.id;
     const name = await promptName("新建子分类", "如：大学 / 高中 / 小学");
     if (!name) return;
-    request("/categories", "POST", { name, parentId: id }).then(() => { wx.showToast({ title: "已添加", icon: "success" }); this.refresh(); }).catch(showError);
+    this.writeForOwner(owner, "/categories", "POST", { name, parentId: id }).then(() => { wx.showToast({ title: "已添加", icon: "success" }); this.refresh(); }).catch(showError);
   },
   async renameCategory(e) {
+    const owner = this.operationOwner(); if (!owner) return;
     const id = e.currentTarget.dataset.id;
     const name = await promptName("重命名分类", "请输入新名称");
     if (!name) return;
-    request(`/categories/${id}`, "PATCH", { name }).then(() => { wx.showToast({ title: "已重命名", icon: "success" }); this.refresh(); }).catch(showError);
+    this.writeForOwner(owner, `/categories/${id}`, "PATCH", { name }).then(() => { wx.showToast({ title: "已重命名", icon: "success" }); this.refresh(); }).catch(showError);
   },
   deleteCategory(e) {
+    const owner = this.operationOwner(); if (!owner) return;
     const id = e.currentTarget.dataset.id;
     const name = e.currentTarget.dataset.name;
     wx.showModal({ title: "删除分类", content: `删除「${name}」及其子分类，分类下的联系人不会被删除（仅解除归类）。`, success: (res) => {
       if (!res.confirm) return;
-      request(`/categories/${id}`, "DELETE").then(() => { wx.showToast({ title: "已删除", icon: "success" }); this.refresh(); }).catch(showError);
+      this.writeForOwner(owner, `/categories/${id}`, "DELETE").then(() => { wx.showToast({ title: "已删除", icon: "success" }); this.refresh(); }).catch(showError);
     } });
   },
-  addContactToCategory(e) {
+  // —— 标签树：导入已有联系人到分类 ——
+  openImport(e) {
+    if (!this.canInteract()) return;
     const id = e.currentTarget.dataset.id;
-    if (id) wx.navigateTo({ url: id === "uncat" ? "/pages/contact-form/index" : `/pages/contact-form/index?categoryId=${id}` });
+    const node = id && id !== "uncat" && this.treeGraph && this.treeGraph.nodeById.get(id);
+    if (!node || node.kind !== "category") return;
+    this.importSelected = new Set();
+    this.setData({ sheet: "import", sheetTitle: `导入到「${node.name}」`, importCategoryId: id, importKeyword: "" });
+    this.buildImportList();
+  },
+  // 已在该分类或其子分类中显示的联系人不再列出。
+  buildImportList() {
+    const id = this.data.importCategoryId;
+    if (!this.treeGraph || !this.treeGraph.nodeById.get(id)) return this.closeSheet();
+    const shown = new Set(this.getBranchContacts(id).map((c) => c.id));
+    const candidates = this.contacts.filter((c) => !shown.has(c.id));
+    const ids = new Set(candidates.map((c) => c.id));
+    this.importSelected = new Set([...(this.importSelected || [])].filter((cid) => ids.has(cid)));
+    const kw = this.data.importKeyword.trim().toLowerCase();
+    const list = candidates
+      .filter((c) => !kw || [c.name, c.organization, c.position, c.city].some((v) => (v || "").toLowerCase().includes(kw)))
+      .map((c) => ({ id: c.id, name: c.name, org: [c.organization, c.city].filter(Boolean).join(" · "), checked: this.importSelected.has(c.id) }));
+    this.setData({ importList: list, importTotal: candidates.length, importCount: this.importSelected.size });
+  },
+  onImportKeyword(e) {
+    this.setData({ importKeyword: e.detail.value });
+    this.buildImportList();
+  },
+  toggleImport(e) {
+    const id = Number(e.currentTarget.dataset.id);
+    if (this.importSelected.has(id)) this.importSelected.delete(id); else this.importSelected.add(id);
+    this.buildImportList();
+  },
+  backToBranch() {
+    const node = this.treeGraph && this.treeGraph.nodeById.get(this.data.importCategoryId);
+    if (node) this.selectBranch(node); else this.closeSheet();
+  },
+  confirmImport() {
+    const owner = this.operationOwner(); if (!owner) return;
+    if (this.importing) return;
+    const ids = [...(this.importSelected || [])];
+    if (!ids.length) return wx.showToast({ title: "请先选择联系人", icon: "none" });
+    const id = this.data.importCategoryId;
+    this.importing = true;
+    this.writeForOwner(owner, `/categories/${id}/contacts`, "POST", { contactIds: ids }).then((result) => {
+      wx.showToast({ title: `已导入 ${result && result.added != null ? result.added : ids.length} 位`, icon: "success" });
+      this.importSelected = new Set();
+      this.setData({ sheet: "branch", selected: { id } });
+      this.refresh();
+    }).catch(showError).then(() => { this.importing = false; });
   },
   addRecommendedCategory(e) {
+    const owner = this.operationOwner(); if (!owner) return;
     const name = e.currentTarget.dataset.name;
     if (!name) return;
-    request("/categories", "POST", { name }).then(() => { wx.showToast({ title: "已添加分类", icon: "success" }); this.refresh(); }).catch(showError);
+    this.writeForOwner(owner, "/categories", "POST", { name }).then(() => { wx.showToast({ title: "已添加分类", icon: "success" }); this.refresh(); }).catch(showError);
   },
   refresh() { this.dataSig = ""; this.loadAll(); },
 
@@ -832,19 +981,22 @@ Page({
     this.setData({ manageCategories: flat, manageRecommended: this.recommended || [], manageDismissed: this.dismissed || [] });
   },
   openManage() {
+    if (!this.canInteract()) return;
     this.buildManageData();
     this.setData({ sheet: "manage", sheetTitle: "分类管理" });
     this.render();
   },
   dismissRecommended(e) {
+    const owner = this.operationOwner(); if (!owner) return;
     const name = e.currentTarget.dataset.name;
     if (!name) return;
-    request("/categories/dismiss", "POST", { name }).then(() => { wx.showToast({ title: "已隐藏", icon: "success" }); this.refresh(); }).catch(showError);
+    this.writeForOwner(owner, "/categories/dismiss", "POST", { name }).then(() => { wx.showToast({ title: "已隐藏", icon: "success" }); this.refresh(); }).catch(showError);
   },
   restoreRecommended(e) {
+    const owner = this.operationOwner(); if (!owner) return;
     const name = e.currentTarget.dataset.name;
     if (!name) return;
-    request("/categories/restore", "POST", { name }).then(() => { wx.showToast({ title: "已恢复", icon: "success" }); this.refresh(); }).catch(showError);
+    this.writeForOwner(owner, "/categories/restore", "POST", { name }).then(() => { wx.showToast({ title: "已恢复", icon: "success" }); this.refresh(); }).catch(showError);
   },
 
   // —— 网络：选中详情 ——
@@ -874,10 +1026,12 @@ Page({
     this.render();
   },
   viewContact() {
+    if (!this.canInteract()) return;
     const sel = this.data.selected;
     if (sel && sel.kind === "person" && sel.ref != null) wx.navigateTo({ url: `/pages/contact-detail/index?id=${sel.ref}` });
   },
   addRelation() {
+    if (!this.canInteract()) return;
     const sel = this.data.selected;
     if (sel && sel.kind === "person" && sel.ref != null) wx.navigateTo({ url: `/pages/relationship-form/index?sourceId=${sel.ref}` });
   },
@@ -887,16 +1041,18 @@ Page({
   },
   focusMember(e) { const id = e.currentTarget.dataset.id; if (id) this.focusNode(id); },
   deleteRelation() {
+    const owner = this.operationOwner(); if (!owner) return;
     const sel = this.data.selected;
     if (!sel || sel.kind !== "relation" || sel.ref == null) return;
     wx.showModal({ title: "删除关系", content: "删除后无法恢复，是否继续？", success: (res) => {
       if (!res.confirm) return;
-      request(`/relationships/${sel.ref}`, "DELETE").then(() => { wx.showToast({ title: "已删除", icon: "success" }); this.dataSig = ""; this.closeSheet(); this.refresh(); }).catch(showError);
+      this.writeForOwner(owner, `/relationships/${sel.ref}`, "DELETE").then(() => { wx.showToast({ title: "已删除", icon: "success" }); this.dataSig = ""; this.closeSheet(); this.refresh(); }).catch(showError);
     } });
   },
 
   // —— 搜索（实时结果列表 + 定位）——
   onSearchInput(e) {
+    if (!this.canInteract()) return;
     const keyword = e.detail.value;
     this.setData({ keyword });
     if (this._searchTimer) clearTimeout(this._searchTimer);
@@ -905,6 +1061,7 @@ Page({
   },
   clearSearch() { this.setData({ keyword: "", searchResults: [] }); },
   runSearch() {
+    if (!this.canInteract()) return;
     const kw = (this.data.keyword || "").trim().toLowerCase();
     if (!kw) { this.setData({ searchResults: [] }); return; }
     const results = [];
@@ -927,11 +1084,13 @@ Page({
     this.setData({ searchResults: results.slice(0, 30) });
   },
   search() {
+    if (!this.canInteract()) return;
     this.runSearch();
     const results = this.data.searchResults;
     if (results.length === 1) this.locateResult({ currentTarget: { dataset: results[0] } });
   },
   locateResult(e) {
+    if (!this.canInteract()) return;
     const d = e.currentTarget.dataset;
     const type = d.type; const id = d.id; const catId = d.catid || d.catId; const name = d.name;
     if (this.data.mode === "tree") {
@@ -959,6 +1118,7 @@ Page({
 
   // —— 抽屉 ——
   openSheet(e) {
+    if (!this.canInteract()) return;
     const which = e.currentTarget.dataset.sheet;
     const titles = { detail: "节点详情", filter: "筛选与显隐", rank: "人脉中心度 TOP 10", tools: "图谱工具" };
     if (which === "rank") {
@@ -992,6 +1152,7 @@ Page({
   // —— 工具 ——
   fit() { this.fitView(); this.render(); },
   resetView() {
+    if (!this.canInteract()) return;
     this.isolation = null; this.pathNodes = null; this.pathEdges = null; this.pathMode = false; this.pathStart = null; this.pathEnd = null;
     this.selectedId = null; this.selectedEdgeId = null; this.centerId = null;
     this.setData({ hint: "" });
@@ -1001,6 +1162,7 @@ Page({
   },
   setDegreeN(e) { this.setData({ degreeN: Number(e.currentTarget.dataset.n) }); },
   isolateN() {
+    if (!this.canInteract()) return;
     const center = this.selectedId || this.centerId;
     if (!center) { this.setData({ hint: "请先点选一个节点作为中心" }); return; }
     this.isolation = graph.neighborsWithin(this.networkAdjacency, center, this.data.degreeN);
@@ -1012,6 +1174,7 @@ Page({
   clearIsolation() { this.isolation = null; this.setData({ hint: "已清除隔离" }); this.render(); },
   toggleFreeze() { this.frozen = !this.frozen; this.setData({ frozen: this.frozen }); if (!this.frozen && this.networkGraph && this.simTicks < this.simMax) this.startSim(); },
   togglePathMode() {
+    if (!this.canInteract()) return;
     this.pathMode = !this.pathMode;
     this.pathStart = null; this.pathEnd = null;
     if (this.pathMode) { this.pathNodes = null; this.pathEdges = null; this.setData({ hint: "路径模式：点选起点节点" }); }
@@ -1038,6 +1201,5 @@ Page({
   pathNodeTap(e) { const id = e.currentTarget.dataset.id; if (id) this.focusNode(id); },
 
   // —— 空状态 ——
-  addFirst() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
   goContacts() { wx.switchTab({ url: "/pages/contacts/index" }); }
 });

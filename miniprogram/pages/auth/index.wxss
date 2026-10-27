@@ -3,6 +3,9 @@
   min-height: 100vh;
   overflow: hidden;
   color: #fff;
+  width:100%;
+  box-sizing:border-box;
+  word-wrap:break-word;
 }
 
 .auth-bg {

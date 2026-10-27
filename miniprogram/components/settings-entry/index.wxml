@@ -1,1 +1,5 @@
-<view class="settings-bar"><view class="settings-control" bindtap="openSettings">设置</view></view>
+<button class="settings-card" bindtap="openSettings" aria-label="打开设置">
+  <view class="settings-icon">设</view>
+  <view class="settings-copy"><view class="settings-title">设置</view><text class="settings-description">个人资料、账号安全与隐私授权</text></view>
+  <text class="settings-chevron">›</text>
+</button>

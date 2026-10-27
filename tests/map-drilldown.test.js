@@ -10,12 +10,19 @@ test("map drills from country to city contacts and back", async () => {
   let switchedTo = "";
   let navigatedTo = "";
   let page;
+  const runtimeModule = { exports: {} };
   const sandbox = {
-    exports: {},
+    setTimeout: () => 1,
+    clearTimeout() {},
+    module: runtimeModule,
+    exports: runtimeModule.exports,
     require(id) {
       if (id.includes("utils/api")) return {
-        request: async url => {
+        request: async (url, method = "GET", data) => {
           const parsed = new URL(url, "http://localhost");
+          if (method === "POST" && parsed.pathname === "/maps/locations") {
+            for (const field of ["level", "country", "province", "city"]) parsed.searchParams.set(field, data[field]);
+          }
           requests.push(parsed);
           if (parsed.pathname === "/maps/regions") {
             const level = parsed.searchParams.get("level");
@@ -27,7 +34,7 @@ test("map drills from country to city contacts and back", async () => {
             const city = parsed.searchParams.get("city");
             return {
               center: city ? { latitude: 32, longitude: 118 } : { latitude: 31, longitude: 119 },
-              markers: city ? [] : [{ name: "Nanjing", count: 1, latitude: 32, longitude: 118 }]
+              markers: city ? [] : (data?.regions || []).map(name => ({ name, latitude: 32, longitude: 118 }))
             };
           }
           if (parsed.pathname === "/contacts/directory") {
@@ -37,6 +44,10 @@ test("map drills from country to city contacts and back", async () => {
         },
         showError: error => { throw error; }
       };
+      if (id.includes("contact-search")) return require(path.join(__dirname, "../miniprogram/utils/contact-search.js"));
+      if (id.includes("utils/globe")) return require(path.join(__dirname, "../miniprogram/utils/globe.js"));
+      if (id.includes("region-points")) return require(path.join(__dirname, "../miniprogram/utils/region-points.js"));
+      if (id.includes("local-data")) return { changedAt: () => 0 };
       if (id.includes("world.js")) return [];
       if (id.includes("jiangsu.js")) return require(path.join(__dirname, "../miniprogram/assets/data/jiangsu.js"));
       return { createScopedThreejs() {} };
@@ -81,7 +92,7 @@ test("map drills from country to city contacts and back", async () => {
   assert.equal(page.data.citySelected, true);
   assert.equal(page.data.city, "Nanjing");
   assert.equal(page.data.total, 1);
-  assert.equal(page.data.cityContacts.length, 1);
+  assert.equal(page.data.cityContactCount, 1);
   assert.equal(page.data.center.latitude, 32);
   assert.equal(page.data.markers[0].latitude, 32.1);
   assert.equal(page.data.markers[0].longitude, 118.9);
@@ -111,9 +122,26 @@ test("map drills from country to city contacts and back", async () => {
   page.backToCityList();
   await pending;
   assert.equal(page.data.citySelected, false);
-  assert.equal(page.data.cityContacts.length, 0);
+  assert.equal(page.data.cityContactCount, 0);
   page.backToCountry();
   await pending;
   assert.equal(page.data.level, "province");
   assert.equal(page.data.province, "");
+});
+
+test("contacts without selected coordinates retain null instead of a zero-zero marker", () => {
+  const data = new Map();
+  global.wx = { getStorageSync: key => structuredClone(data.get(key) || ""),
+    setStorageSync: (key, value) => data.set(key, structuredClone(value)), removeStorageSync: key => data.delete(key) };
+  const local = require("../miniprogram/utils/local-data");
+  const owner = "map-coordinate-test";
+  local.migrate(owner, { ownerId: owner, contacts: [], relationships: [] });
+  for (const value of [null, "", "   "]) {
+    const contact = local.handle(owner, "/contacts", "POST", { name: "未选位置", latitude: value, longitude: value });
+    assert.equal(contact.latitude, null);
+    assert.equal(contact.longitude, null);
+  }
+  const zero = local.handle(owner, "/contacts", "POST", { name: "真实零坐标", latitude: 0, longitude: 0 });
+  assert.equal(zero.latitude, 0);
+  assert.equal(zero.longitude, 0);
 });

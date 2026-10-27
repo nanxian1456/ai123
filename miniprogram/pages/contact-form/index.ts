@@ -3,6 +3,7 @@ import duplicates = require("../../utils/duplicates");
 import type { LocalCategory } from "../../utils/local-data";
 import { splitTags, suggestedTagOptions } from "../../utils/contact-tags";
 import { confirmAiTransfer } from "../../utils/consent";
+import { countryOption, searchCountries, normalizeProvince, normalizeCity, provinceNames, cityNames, regionOf, type Country } from "../../utils/regions";
 
 const AI_FIELDS = [
   { key: "name", label: "姓名" },
@@ -56,6 +57,19 @@ const previewFields = (data: any) =>
 
 Page({
   data: {
+    entryMode: "manual" as "manual" | "ai" | "code" | "batch",
+    countryPickerOpen: false,
+    countryKeyword: "",
+    countryOptions: [] as Country[],
+    recentCountries: [] as Country[],
+    countryUnrecognized: false,
+    domesticRegion: false,
+    manualRegion: false,
+    provinceOptions: ["未设置"],
+    cityOptions: ["未设置"],
+    provinceIndex: 0,
+    cityIndex: 0,
+    regionChanging: false,
     id: "",
     form: {
       name: "",
@@ -89,24 +103,51 @@ Page({
     categoryOptions: [] as CategoryOption[],
   },
   categoryList: [] as Array<{ id: string; label: string }>,
+  categoriesLoaded: false,
   onLoad(query: Record<string, string>) {
     if (query.id) this.setData({ id: query.id });
+    const mode = query.mode;
+    if (mode === "ai" || (!query.id && (mode === "code" || mode === "batch")))
+      this.setData({ entryMode: mode });
     if (!query.id && query.categoryId)
       this.setData({ categoryIds: [query.categoryId] });
+    this.refreshRegionChoices();
     this.loadCategories();
     this.loadTags();
     if (query.id) this.loadContact(query.id);
+  },
+  selectEntryMode(event: any) {
+    if (this.data.saving || this.data.loading || this.data.extracting || this.data.importing) return;
+    const mode = event.currentTarget.dataset.mode;
+    if (!["manual", "ai", "code", "batch"].includes(mode)) return;
+    if (this.data.id && (mode === "code" || mode === "batch")) return;
+    this.setData({ entryMode: mode });
   },
   async loadCategories() {
     try {
       const result = await request<{ tree?: LocalCategory[] }>("/categories");
       this.categoryList = flattenCategories((result && result.tree) || []);
+      // Only a well-formed answer is trusted for pruning deleted classifications.
+      this.categoriesLoaded = !!result && Array.isArray(result.tree);
       this.refreshCategoryOptions();
     } catch (error) {
       showError(error);
     }
   },
+  // Drops classifications that no longer exist (e.g. the category was deleted in the graph
+  // after the form was opened from it), so saving does not fail with "分类数据无效".
+  pruneDeletedCategories(): boolean {
+    const current = this.data.categoryIds;
+    if (!this.categoriesLoaded || !current || !current.length) return false;
+    const existing = new Set(this.categoryList.map((item) => item.id));
+    const kept = current.filter((id) => existing.has(id));
+    if (kept.length === current.length) return false;
+    this.setData({ categoryIds: kept });
+    wx.showToast({ title: "原分类已被删除，已取消该归类", icon: "none" });
+    return true;
+  },
   refreshCategoryOptions() {
+    this.pruneDeletedCategories();
     const selected = new Set(this.data.categoryIds || []);
     this.setData({
       categoryOptions: this.categoryList.map((item) => ({
@@ -168,6 +209,7 @@ Page({
         selectedTags: splitTags(tagsText),
         categoryIds: Array.isArray(contact.categoryIds) ? contact.categoryIds : null,
       });
+      this.refreshRegionChoices();
       this.refreshCategoryOptions();
       wx.setNavigationBarTitle({ title: "编辑联系人" });
     } catch (error) {
@@ -176,6 +218,106 @@ Page({
     } finally {
       this.setData({ loading: false });
     }
+  },
+  regionBusy() {
+    return this.data.loading || this.data.loadFailed || this.data.saving || this.data.extracting || this.data.importing || this.data.regionChanging;
+  },
+  refreshRegionChoices() {
+    const place = regionOf(this.data.form);
+    const provinceOptions = ["未设置", ...provinceNames()];
+    const cityOptions = ["未设置", ...cityNames(place.province)];
+    this.setData({
+      domesticRegion: place.country === "中国",
+      countryUnrecognized: !!this.data.form.country.trim() && !countryOption(this.data.form.country),
+      provinceOptions, cityOptions,
+      provinceIndex: Math.max(0, provinceOptions.indexOf(normalizeProvince(this.data.form.province))),
+      cityIndex: Math.max(0, cityOptions.indexOf(normalizeCity(this.data.form.city))),
+    });
+  },
+  recentCountryKey() {
+    const owner = wx.getStorageSync("ai-network-owner-id");
+    return owner ? `ai-network-recent-countries:${owner}` : "";
+  },
+  openCountryPicker() {
+    if (this.regionBusy()) return;
+    const key = this.recentCountryKey();
+    const stored = key ? wx.getStorageSync(key) : [];
+    const codes = Array.isArray(stored) ? stored.filter(code => typeof code === "string").slice(0, 6) : [];
+    const recentCountries = codes.map(code => countryOption(code)).filter((item): item is Country => !!item);
+    this.refreshRegionChoices();
+    this.setData({ countryPickerOpen: true, countryKeyword: "", countryOptions: searchCountries(), recentCountries });
+  },
+  closeCountryPicker() { if (!this.data.regionChanging) this.setData({ countryPickerOpen: false }); },
+  toggleManualRegion() { if (!this.regionBusy()) this.setData({ manualRegion: !this.data.manualRegion }); },
+  countrySearch(event: any) {
+    const countryKeyword = String(event.detail.value || "");
+    this.setData({ countryKeyword, countryOptions: searchCountries(countryKeyword) });
+  },
+  async confirmRegionChange(updates: Record<string, unknown>, needsConfirmation: boolean): Promise<boolean> {
+    if (this.regionBusy()) return false;
+    const snapshot = JSON.stringify(this.data.form);
+    this.setData({ regionChanging: true });
+    try {
+      if (needsConfirmation) {
+        const accepted = await new Promise<boolean>(resolve => wx.showModal({
+          title: "确认更换地区",
+          content: "更换后将清空下级地区、详细位置和地图坐标，联系人其他资料保留。是否继续？",
+          confirmText: "更换", cancelText: "取消",
+          success: result => resolve(result.confirm), fail: () => resolve(false),
+        }));
+        if (!accepted) return false;
+      }
+      if (snapshot !== JSON.stringify(this.data.form) || this.data.saving || this.data.extracting || this.data.importing) {
+        wx.showToast({ title: "资料已变化，请重新选择", icon: "none" });
+        return false;
+      }
+      this.setData(updates);
+      this.refreshRegionChoices();
+      return true;
+    } finally { this.setData({ regionChanging: false }); }
+  },
+  async selectCountry(event: any) {
+    if (this.regionBusy()) return;
+    const code = event.currentTarget.dataset.code;
+    if (typeof code !== "string") return;
+    const option = code ? countryOption(code) : undefined;
+    if (code && (!option || option.code !== code)) return;
+    const country = option?.name || "";
+    const form = this.data.form;
+    const hasLocation = !!(form.province || form.city || form.address || form.latitude != null || form.longitude != null);
+    const same = country === regionOf(form).country && !(country === "" && hasLocation);
+    const updates: Record<string, unknown> = { "form.country": country };
+    if (!same) Object.assign(updates, { "form.province": "", "form.city": "", "form.address": "", "form.latitude": null, "form.longitude": null });
+    if (!await this.confirmRegionChange(updates, !same && hasLocation)) return;
+    this.setData({ countryPickerOpen: false, manualRegion: false });
+    const key = this.recentCountryKey();
+    if (key && option) {
+      try {
+        const stored = wx.getStorageSync(key);
+        const codes = Array.isArray(stored) ? stored.filter(value => typeof value === "string" && value !== code) : [];
+        wx.setStorageSync(key, [code, ...codes].slice(0, 6));
+      } catch (_) { /* A preference write must not prevent saving contact data. */ }
+    }
+  },
+  async changeProvince(event: any) {
+    if (this.regionBusy()) return;
+    const value = this.data.provinceOptions[Number(event.detail.value)];
+    if (value === undefined) return;
+    const province = value === "未设置" ? "" : value;
+    if (province === normalizeProvince(this.data.form.province)) return;
+    const form = this.data.form;
+    await this.confirmRegionChange({ "form.province": province, "form.city": "", "form.address": "", "form.latitude": null, "form.longitude": null },
+      !!(form.city || form.address || form.latitude != null || form.longitude != null));
+  },
+  async changeCity(event: any) {
+    if (this.regionBusy()) return;
+    const value = this.data.cityOptions[Number(event.detail.value)];
+    if (value === undefined) return;
+    const city = value === "未设置" ? "" : value;
+    if (city === normalizeCity(this.data.form.city)) return;
+    const form = this.data.form;
+    await this.confirmRegionChange({ "form.city": city, "form.address": "", "form.latitude": null, "form.longitude": null },
+      !!(form.address || form.latitude != null || form.longitude != null));
   },
   input(event: any) {
     if (this.data.loading || this.data.loadFailed) return;
@@ -190,11 +332,12 @@ Page({
       );
       updates.selectedTags = splitTags(event.detail.value);
     }
-    if (field === "address") {
+    if (["address", "country", "province", "city"].includes(field)) {
       updates["form.latitude"] = null;
       updates["form.longitude"] = null;
     }
     this.setData(updates);
+    if (["country", "province", "city"].includes(field)) this.refreshRegionChoices();
   },
   chooseLocation() {
     if (this.data.loading || this.data.loadFailed) return;
@@ -268,6 +411,7 @@ Page({
           updates[`form.${field}`] = value.trim();
       });
       this.setData(updates);
+      this.refreshRegionChoices();
       wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
       wx.showToast({ title: "已填入空白字段", icon: "success" });
     } catch (error) {
@@ -369,11 +513,12 @@ Page({
     if (!Object.keys(updates).length)
       return wx.showToast({ title: "已有资料未被覆盖", icon: "none" });
     this.setData(updates);
+    this.refreshRegionChoices();
     wx.pageScrollTo({ selector: "#contact-form", duration: 250 });
     wx.showToast({ title: "已填入空白字段", icon: "success" });
   },
   async save() {
-    if (this.data.saving || this.data.loading || this.data.loadFailed) return;
+    if (this.data.saving || this.data.loading || this.data.loadFailed || this.data.extracting || this.data.importing || this.data.regionChanging) return;
     const form = this.data.form;
     if (!form.name.trim())
       return wx.showToast({ title: "请填写姓名", icon: "none" });
@@ -383,6 +528,19 @@ Page({
         title: "标签最多10个，每个不超过20字",
         icon: "none",
       });
+    this.setData({ saving: true });
+    if (this.data.categoryIds && this.data.categoryIds.length) {
+      try {
+        const result = await request<{ tree?: LocalCategory[] }>("/categories");
+        if (result && Array.isArray(result.tree)) {
+          this.categoryList = flattenCategories(result.tree);
+          this.categoriesLoaded = true;
+          if (this.pruneDeletedCategories()) this.refreshCategoryOptions();
+        }
+      } catch (_) {
+        /* The save below reports any remaining problem. */
+      }
+    }
     const payload = {
       ...form,
       name: form.name.trim(),
@@ -390,7 +548,6 @@ Page({
       ...(this.data.categoryIds ? { categoryIds: [...this.data.categoryIds] } : {}),
     };
     delete (payload as { tagsText?: string }).tagsText;
-    this.setData({ saving: true });
     try {
       const contacts = await request<any[]>("/contacts");
       const matches = duplicates.findPotentialDuplicates(

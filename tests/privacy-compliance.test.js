@@ -8,7 +8,7 @@ const ROOT = path.join(__dirname, "../miniprogram");
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), "utf8");
 
 function freshConsent(modalAnswer) {
-  const store = new Map();
+  const store = new Map([["ai-network-owner-id", "privacy-fixture"]]);
   const modals = [];
   global.wx = {
     getStorageSync: (key) => (store.has(key) ? structuredClone(store.get(key)) : ""),
@@ -35,7 +35,7 @@ test("general and AI consent are recorded, versioned and withdrawable separately
   consent.withdrawAiConsent();
   assert.equal(consent.hasAiConsent(), false);
   assert.equal(consent.hasConsent(), true);
-  store.set("ai-network-consent", { version: "older-version" });
+  store.set("ai-network-consent:privacy-fixture", { version: "older-version" });
   assert.equal(consent.hasConsent(), false, "a policy version change asks again");
   consent.recordConsent();
   consent.withdrawConsent();
@@ -159,7 +159,7 @@ test("returning users who have not agreed to the current policy confirm it befor
     require: (id) =>
       id.endsWith("consent") ? { hasConsent: () => false }
         : id.endsWith("api-config") ? { getMediaUrl: () => "" }
-          : { validateSession: () => { calls.validated += 1; return Promise.resolve({}); }, clearSession() {}, hasProfileData() {}, showError() {} },
+          : { validateSession: () => { calls.validated += 1; return Promise.resolve({}); }, getPendingAccountDeletion: () => "", clearSession() {}, hasProfileData() {}, showError() {} },
     Page: (value) => { definition = value; },
     wx: { reLaunch: (options) => calls.relaunches.push(options.url) },
   });
@@ -195,10 +195,13 @@ test("withdraw-all uses a valid WeChat modal and clears consent before signing o
   };
   vm.runInNewContext(read("pages/settings-privacy/index.js"), {
     module: runtimeModule, exports: runtimeModule.exports,
-    require: id => id.endsWith("consent") ? consent : { clearSession: () => { signedOut = true; } },
+    require: id => id.endsWith("account-state") ? require("../miniprogram/utils/account-state") : id.endsWith("consent") ? consent : { clearSession: () => { signedOut = true; } },
     Page: value => { definition = value; }, wx
   });
+  definition.setData = values => Object.assign(definition.data, values);
   definition.withdrawAll();
+  assert.equal(consent.hasConsent(), true);
+  definition.confirmWithdrawAll();
   assert.equal(consent.hasConsent(), false);
   assert.equal(consent.hasAiConsent(), false);
   assert.equal(signedOut, true);

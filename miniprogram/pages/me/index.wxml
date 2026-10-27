@@ -1,27 +1,39 @@
-<view class="page">
-  <settings-entry />
-  <view class="card setup-card" wx:if="{{needsSetup}}" bindtap="edit">
-    <view><text>个人资料尚未完善</text><text>填写昵称后，导入码和公开资料等功能才能使用</text></view>
-    <view class="setup-action">去完善 ›</view>
-  </view>
-  <view class="me-hero" wx:if="{{profile}}">
-    <view class="avatar-wrap" bindtap="changeAvatar">
+<view class="page ui-page account-page">
+  <view class="ui-page-heading"><view class="ui-eyebrow">个人空间</view><view class="ui-title">我的</view></view>
+  <view class="app-state" wx:if="{{loading && !profile}}" role="status">正在加载个人资料…</view>
+  <view class="app-state app-state--error" wx:if="{{loadError}}">{{loadError}}<button class="app-action" bindtap="load" disabled="{{loading}}">重新加载</button></view>
+  <view class="account-hero" wx:if="{{profile}}">
+    <button class="avatar-wrap" open-type="chooseAvatar" bindchooseavatar="onAvatarChosen" disabled="{{uploading || avatarPreparing}}" aria-label="选择头像">
       <image wx:if="{{profile.avatarUrl}}" class="avatar-image" src="{{profile.avatarUrl}}" mode="aspectFill"/>
       <view wx:else class="avatar avatar-{{profile.avatarType || 'male-1'}}"><view class="avatar-head"></view><view class="avatar-body"></view></view>
       <view class="avatar-action">{{uploading ? '保存中' : '更换'}}</view>
-    </view>
-    <view class="main"><view>{{profile.nickname || '未设置昵称'}}</view><text>{{profile.position || '完善个人资料后展示职务'}}</text><text>{{profile.organization || '暂未填写单位'}}</text></view>
-    <view class="edit" bindtap="edit">编辑</view>
+    </button>
+    <view class="account-identity"><view>{{profile.nickname || '未设置昵称'}}</view><text>{{profile.organization || profile.position || '完善资料，让别人更了解你'}}</text><text wx:if="{{profile.organization && profile.position}}">{{profile.position}}</text></view>
+    <button class="ui-link" bindtap="edit">编辑 ›</button>
   </view>
-  <view class="section-title">数据存储</view>
-  <view class="card import-code"><view><text>仅保存在当前手机</text><text>卸载或清除小程序数据后无法从服务器恢复</text></view></view>
-  <view class="section-title">我的资料</view>
-  <view class="card details" wx:if="{{profile}}">
-    <view><text>单位</text><text>{{profile.organization || '未填写'}}</text></view>
-    <view><text>职务</text><text>{{profile.position || '未填写'}}</text></view>
-    <view><text>城市</text><text>{{profile.city || '未填写'}}</text></view>
-    <view><text>个人简介</text><text>{{profile.bio || '未填写'}}</text></view>
+  <view class="app-state" wx:if="{{avatarPreparing}}" role="status">正在处理头像…</view>
+  <view class="card avatar-confirm" wx:if="{{avatarPreview}}"><view class="ui-panel-title">确认新头像</view><image class="avatar-preview-image" src="{{avatarPreview}}" mode="aspectFill"/><view class="app-help">确认后仅保存到当前手机。</view><view class="avatar-confirm-actions"><button class="ui-secondary" bindtap="cancelAvatar" disabled="{{uploading}}">取消</button><button class="ui-primary" bindtap="saveAvatar" loading="{{uploading}}" disabled="{{uploading}}">使用头像</button></view></view>
+  <view class="account-setup" wx:if="{{needsSetup}}"><view><view>还差一点，完善你的资料</view><text>填写昵称后即可使用导入码和公开资料。</text></view><button class="ui-link" bindtap="edit">去完善</button></view>
+  <view class="account-storage">
+    <view class="storage-heading"><view class="storage-icon">本</view><view><view class="ui-panel-title">我的本机资料</view><text>资料保存在当前手机，请定期备份。</text></view></view>
+    <block wx:if="{{profile && !summaryError}}">
+      <view class="account-counts"><view><text class="account-count-value">{{contacts}}</text><text class="account-count-label">联系人</text></view><view><text class="account-count-value">{{relationships}}</text><text class="account-count-label">人物关系</text></view></view>
+      <view class="account-backup-time">上次备份：{{lastBackup}}</view>
+      <view class="app-state app-state--warning" wx:if="{{backupWarning}}">{{backupWarning}}</view>
+      <view class="app-state app-state--warning" wx:if="{{storageWarning}}">本机缓存已接近容量上限，请先导出备份。</view>
+      <button class="storage-toggle" bindtap="toggleStorageDetails" aria-expanded="{{storageExpanded}}">{{storageExpanded ? '收起存储详情 ∧' : '查看存储详情 ∨'}}</button>
+      <view class="storage-details" wx:if="{{storageExpanded}}"><view>小程序缓存：{{storageLabel}}</view><view>所有账号合计，不含头像文件</view><view>当前头像文件：{{avatarSizeLabel}}</view></view>
+    </block>
+    <view class="app-state app-state--warning" wx:if="{{summaryError}}">{{summaryError}}<button class="app-action" bindtap="load" disabled="{{loading}}">重试统计</button></view>
+    <button class="ui-secondary" bindtap="openBackup">{{backupUnsaved ? '重新分享备份 ›' : '备份与恢复 ›'}}</button>
   </view>
-  <view class="empty" wx:if="{{!profile}}">正在加载个人资料</view>
+  <view class="ui-panel-title account-section-title">管理与工具</view>
+  <view class="account-tools">
+    <button class="account-tool" bindtap="openFriends"><view class="account-tool-icon">码</view><view><view>导入码与公开资料</view><text>{{publication.retry ? publication.title + '，点击重试' : publication.title + ' · 选择朋友能导入的资料'}}</text></view><text class="account-chevron">›</text></button>
+    <button class="account-tool" bindtap="openSecurity"><view class="account-tool-icon">安</view><view><view>账号与安全</view><text>备份恢复、退出登录与注销账号</text></view><text class="account-chevron">›</text></button>
+    <button class="account-tool" bindtap="openPrivacy"><view class="account-tool-icon">隐</view><view><view>隐私与授权</view><text>用户协议、隐私政策与 AI 授权</text></view><text class="account-chevron">›</text></button>
+  </view>
+  <view class="account-settings"><settings-entry /></view>
+  <view class="account-bio" wx:if="{{profile && profile.bio}}"><view class="ui-panel-title">个人简介</view><text>{{profile.bio}}</text></view>
   <privacy-popup />
 </view>

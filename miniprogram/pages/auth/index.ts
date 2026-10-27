@@ -37,10 +37,21 @@ Page({
         return ensureSession(true).then(() => request<any>("/me"));
       })
       .then(profile => {
+        recordConsent();
         if (hasProfileData(profile)) wx.switchTab({ url: "/pages/index/index" });
         else wx.redirectTo({ url: "/pages/profile-setup/index" });
       })
-      .catch(showError)
+      .catch((error: Error & { code?: string }) => {
+        if (error.code === "WECHAT_LOGIN_FAILED") {
+          wx.showModal({
+            title: "微信登录未完成",
+            content: `${error.message}\n请确认开发者工具已登录微信账号，且项目使用正确的小程序 AppID。也可改用真机调试重试。`,
+            showCancel: false
+          });
+          return;
+        }
+        showError(error);
+      })
       .finally(() => this.setData({ loggingIn: false }));
   }
 });

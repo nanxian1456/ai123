@@ -1,25 +1,14 @@
-import { validateSession, clearSession, hasProfileData, showError } from "../../utils/api";
-import { getMediaUrl } from "../../utils/api-config";
+import { validateSession, clearSession, hasProfileData, showError, getPendingAccountDeletion } from "../../utils/api";
 import { hasConsent } from "../../utils/consent";
 
-// Put the entry animation at backend/src/main/resources/static/videos/entry.mp4.
-// Until it exists the shared login background is used, then a plain gradient.
-const VIDEO_CANDIDATES = ["/videos/entry.mp4", "/videos/background.mp4"];
-
 Page({
-  data: { checking: false, bgVideo: "" },
-  videoIndex: 0,
-  onLoad() {
-    this.videoIndex = 0;
-    this.setData({ bgVideo: getMediaUrl(VIDEO_CANDIDATES[0]) });
-  },
-  onVideoError() {
-    this.videoIndex += 1;
-    const next = VIDEO_CANDIDATES[this.videoIndex];
-    this.setData({ bgVideo: next ? getMediaUrl(next) : "" });
-  },
+  data: { checking: false },
   enterHome() {
     if (this.data.checking) return;
+    if (getPendingAccountDeletion()) {
+      wx.reLaunch({ url: "/pages/settings-security/index" });
+      return;
+    }
     // Existing users who have not agreed to the current terms confirm them on the login page.
     // After agreement, the login page reuses local identity without requiring a network login.
     if (!hasConsent()) {

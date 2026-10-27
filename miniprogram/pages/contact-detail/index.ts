@@ -1,6 +1,6 @@
 import { request, showError } from "../../utils/api";
 Page({
-  data: { contact: null as any, relationships: [] as any[] },
+  data: { contact: null as any, relationships: [] as any[], contactId: "", loading: true, loadError: "", showEmptyFields: false },
   onLoad(query: Record<string, string>) {
     if (query.id) this.loadContact(query.id);
   },
@@ -8,6 +8,7 @@ Page({
     if (this.data.contact) this.loadContact(String(this.data.contact.id));
   },
   async loadContact(id: string) {
+    this.setData({ contactId: id, loading: true, loadError: "" });
     try {
       const contact = await request<any>(`/contacts/${id}`);
       this.setData({
@@ -18,8 +19,20 @@ Page({
       });
       await this.loadRelationships(id);
     } catch (error) {
+      this.setData({ loadError: error instanceof Error ? error.message : "联系人暂时无法读取" });
       showError(error);
+    } finally {
+      this.setData({ loading: false });
     }
+  },
+  retryLoad() { if (this.data.contactId) return this.loadContact(this.data.contactId); },
+  toggleEmptyFields() { this.setData({ showEmptyFields: !this.data.showEmptyFields }); },
+  copyField(event: any) {
+    const field = event.currentTarget.dataset.field;
+    if (field !== "phone" && field !== "email") return;
+    const value = String(this.data.contact?.[field] || "").trim();
+    if (!value) return wx.showToast({ title: "暂无可复制内容", icon: "none" });
+    wx.setClipboardData({ data: value, fail: () => wx.showToast({ title: "复制未完成，请重试", icon: "none" }) });
   },
   async loadRelationships(id: string | number) {
     try {
@@ -46,6 +59,12 @@ Page({
     if (this.data.contact)
       wx.navigateTo({
         url: `/pages/relationship-form/index?sourceId=${this.data.contact.id}`,
+      });
+  },
+  editRelationship(event: any) {
+    if (this.data.contact)
+      wx.navigateTo({
+        url: `/pages/relationship-form/index?sourceId=${this.data.contact.id}&id=${event.currentTarget.dataset.id}`,
       });
   },
   openOther(event: any) {

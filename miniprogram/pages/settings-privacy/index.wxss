@@ -2,14 +2,21 @@
 .visibility-card { padding:0 25rpx; }
 .visibility-row { display:flex; align-items:center; justify-content:space-between; min-height:104rpx; border-bottom:1rpx solid #edf1f3; }
 .visibility-row:last-child { border-bottom:0; }
-.visibility-row > view > text:first-child { display:block; color:#263c4e; font-size:29rpx; font-weight:600; }
+.visibility-row > view > text:first-child { display:block; color:#1f3a57; font-size:29rpx; font-weight:600; }
 .visibility-row > view > text:last-child { display:block; margin-top:6rpx; color:#8a98a5; font-size:20rpx; }
 .visibility-row switch { transform:scale(.82); transform-origin:right center; }
 .consent-card { padding:0 25rpx; }
-.consent-row { display:flex; align-items:center; justify-content:space-between; gap:20rpx; min-height:96rpx; border-bottom:1rpx solid #edf1f3; color:#263c4e; font-size:28rpx; }
+.consent-row { display:flex; align-items:center; justify-content:space-between; gap:20rpx; min-height:96rpx; border-bottom:1rpx solid #edf1f3; color:#1f3a57; font-size:28rpx; }
 .consent-row:last-child { border-bottom:0; }
 .consent-row > view > text { display:block; }
 .consent-sub { margin-top:6rpx; color:#8a98a5; font-size:21rpx; }
 .consent-row.danger { color:#d92d20; }
 .chevron { color:#a4b0bc; font-size:34rpx; }
 .consent-button { margin:0; color:#d92d20; background:#fff1f0; font-size:24rpx; }
+.visibility-row,.consent-row { min-width:0; gap:20rpx; padding:16rpx 0; box-sizing:border-box; }
+.visibility-row > view,.consent-row > view { flex:1; min-width:0; word-wrap:break-word; }
+.visibility-row switch { flex:none; }
+.consent-row .chevron { flex:none; }
+.page .consent-button { flex:0 1 auto; max-width:42%; width:auto; white-space:normal; line-height:1.5; padding:16rpx; }
+.withdrawal-panel { margin-top:24rpx; }
+.withdrawal-panel button { margin-top:16rpx; }

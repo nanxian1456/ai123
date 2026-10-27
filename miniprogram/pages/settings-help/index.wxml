@@ -1,0 +1,7 @@
+<view class="page ui-page help-page">
+  <view class="ui-page-heading"><view class="ui-title">帮助与反馈</view><view class="ui-subtitle">遇到问题时，先查看说明或复制诊断信息。</view></view>
+  <view class="card"><view class="ui-panel-title">版本信息</view><view class="app-help">{{info.environment}} · {{info.version}}<view>微信 {{info.wechat}} · 基础库 {{info.sdk}}</view><view>{{info.backend}}</view></view><button class="ui-secondary" bindtap="copyDiagnostics">复制脱敏诊断信息</button><view class="app-help">只包含版本、系统及配置状态，不包含账号、联系人、密钥或后端地址；复制后请自行检查再分享。</view></view>
+  <view class="card"><view class="ui-panel-title">常见问题</view><view class="faq" wx:for="{{faqs}}" wx:key="q"><view class="faq-question">{{item.q}}</view><text>{{item.a}}</text></view></view>
+  <button class="ui-secondary" bindtap="openPermissions">打开微信权限管理</button><button class="ui-primary feedback-button" open-type="feedback">通过微信提交意见反馈</button><view class="app-help">反馈由你主动提交。请勿填写 AppSecret、访问令牌、备份密码或真实联系人资料。</view>
+  <privacy-popup />
+</view>

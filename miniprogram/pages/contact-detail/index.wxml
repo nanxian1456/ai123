@@ -1,11 +1,32 @@
-<view class="page" wx:if="{{contact}}">
-  <settings-entry />
-  <view class="profile-hero"><view class="avatar">{{contact.initial}}</view><view class="profile-main"><view class="profile-name">{{contact.name}}</view><view class="profile-role">{{contact.position || '未填写职务'}} · {{contact.organization || '未填写单位'}}</view><view class="tag-row"><text wx:for="{{contact.tags}}" wx:key="*this">{{item}}</text></view></view><view class="status">已联系人</view></view>
-  <view class="quick-actions"><view bindtap="call"><text>☎</text><text>打电话</text></view><view bindtap="edit"><text>✎</text><text>编辑资料</text></view></view>
-  <view class="section-head"><text>联系人信息</text><text>完整资料</text></view>
-  <view class="info-card"><view><text>单位</text><text>{{contact.organization || '未填写'}}</text></view><view><text>职务</text><text>{{contact.position || '未填写'}}</text></view><view><text>研究 / 备注</text><text>{{contact.note || '未填写'}}</text></view><view><text>国家</text><text>{{contact.country || '未填写'}}</text></view><view><text>省份 / 州</text><text>{{contact.province || '未填写'}}</text></view><view><text>城市</text><text>{{contact.city || '未填写'}}</text></view><view wx:if="{{contact.address}}"><text>详细位置</text><text>{{contact.address}}</text></view><view><text>电话</text><text>{{contact.phone || '未填写'}}</text></view><view><text>邮箱</text><text>{{contact.email || '未填写'}}</text></view></view>
-  <view class="section-head"><text>人物关系</text><text class="action-link" bindtap="addRelationship">＋ 新增关系</text></view>
-  <view class="relations" wx:if="{{relationships.length}}"><view class="relation" wx:for="{{relationships}}" wx:key="id"><view class="relation-avatar" data-id="{{item.other.id}}" bindtap="openOther">{{item.other.name}}</view><view class="relation-main" data-id="{{item.other.id}}" bindtap="openOther"><view>{{item.other.name}} <text>{{item.label}}</text></view><view>{{item.summary || '未填写关系说明'}}</view></view><text class="remove" data-id="{{item.id}}" bindtap="removeRelationship">删除</text></view></view>
-  <view class="empty" wx:else>尚未建立人物关系</view>
-  <view class="delete" bindtap="remove">删除联系人</view>
+<view class="page ui-page detail-page">
+  <view class="app-state" wx:if="{{loading && !contact}}" role="status">正在读取联系人资料…</view>
+  <view class="app-state app-state--error" wx:if="{{loadError}}">{{loadError}}<button class="app-action" bindtap="retryLoad">重新加载</button></view>
+  <block wx:if="{{contact}}">
+    <view class="detail-identity"><view class="detail-avatar">{{contact.initial}}</view><view class="detail-identity-main"><view class="ui-eyebrow">联系人档案</view><view class="detail-name">{{contact.name}}</view><view class="detail-role">{{contact.organization || contact.position || '资料待补充'}}<text wx:if="{{contact.organization && contact.position}}"> · {{contact.position}}</text></view></view></view>
+    <view class="detail-tags" wx:if="{{contact.tags.length}}"><text wx:for="{{contact.tags}}" wx:key="*this">{{item}}</text></view>
+    <view class="detail-actions"><button class="ui-primary" bindtap="call" disabled="{{!contact.phone}}">拨打电话</button><button class="ui-secondary" bindtap="edit">编辑资料</button></view>
+    <view class="card detail-panel" wx:if="{{contact.phone || contact.email || showEmptyFields}}"><view class="ui-panel-title">联系方式</view>
+      <view class="detail-field" wx:if="{{contact.phone || showEmptyFields}}"><text class="detail-field-label">电话</text><text class="detail-field-value">{{contact.phone || '未填写'}}</text><button wx:if="{{contact.phone}}" class="ui-link" data-field="phone" bindtap="copyField" aria-label="复制电话">复制</button></view>
+      <view class="detail-field" wx:if="{{contact.email || showEmptyFields}}"><text class="detail-field-label">邮箱</text><text class="detail-field-value">{{contact.email || '未填写'}}</text><button wx:if="{{contact.email}}" class="ui-link" data-field="email" bindtap="copyField" aria-label="复制邮箱">复制</button></view>
+    </view>
+    <view class="card detail-panel" wx:if="{{contact.organization || contact.position || showEmptyFields}}"><view class="ui-panel-title">工作信息</view>
+      <view class="detail-field" wx:if="{{contact.organization || showEmptyFields}}"><text class="detail-field-label">单位</text><text class="detail-field-value">{{contact.organization || '未填写'}}</text></view>
+      <view class="detail-field" wx:if="{{contact.position || showEmptyFields}}"><text class="detail-field-label">职务</text><text class="detail-field-value">{{contact.position || '未填写'}}</text></view>
+    </view>
+    <view class="card detail-panel" wx:if="{{contact.country || contact.province || contact.city || contact.address || showEmptyFields}}"><view class="ui-panel-title">所在地</view>
+      <view class="detail-field" wx:if="{{contact.country || showEmptyFields}}"><text class="detail-field-label">国家 / 地区</text><text class="detail-field-value">{{contact.country || '未填写'}}</text></view>
+      <view class="detail-field" wx:if="{{contact.province || showEmptyFields}}"><text class="detail-field-label">省份 / 州</text><text class="detail-field-value">{{contact.province || '未填写'}}</text></view>
+      <view class="detail-field" wx:if="{{contact.city || showEmptyFields}}"><text class="detail-field-label">城市</text><text class="detail-field-value">{{contact.city || '未填写'}}</text></view>
+      <view class="detail-field" wx:if="{{contact.address || showEmptyFields}}"><text class="detail-field-label">详细位置</text><text class="detail-field-value">{{contact.address || '未填写'}}</text></view>
+    </view>
+    <view class="card detail-panel" wx:if="{{contact.note || showEmptyFields}}"><view class="ui-panel-title">备注</view><view class="detail-note">{{contact.note || '还没有留下备注'}}</view></view>
+    <button class="ui-link empty-fields-toggle" bindtap="toggleEmptyFields">{{showEmptyFields ? '收起未填写字段' : '展开未填写字段'}} {{showEmptyFields ? '⌃' : '⌄'}}</button>
+    <view class="detail-section-heading"><view class="ui-panel-title">人物关系 <text>{{relationships.length}}</text></view><button class="ui-link" bindtap="addRelationship">＋ 新增关系</button></view>
+    <view class="card relationship-panel" wx:if="{{relationships.length}}">
+      <view class="relationship-row" wx:for="{{relationships}}" wx:key="id"><view class="relation-avatar" data-id="{{item.other.id}}" bindtap="openOther">联</view><view class="relationship-content" data-id="{{item.other.id}}" bindtap="openOther"><view class="relationship-name">{{item.other.name}}<text>{{item.label}}</text></view><view class="relationship-note">{{item.summary || '未填写关系说明'}}</view></view><button class="relationship-remove relationship-edit" data-id="{{item.id}}" bindtap="editRelationship">编辑</button><button class="relationship-remove" data-id="{{item.id}}" bindtap="removeRelationship">移除</button></view>
+    </view>
+    <view class="detail-no-relations" wx:else><view>还没有建立人物关系</view><text>关联同事、同学或合作伙伴，让连接更清楚。</text></view>
+    <button class="detail-delete" bindtap="remove">删除这位联系人</button>
+  </block>
+  <privacy-popup />
 </view>

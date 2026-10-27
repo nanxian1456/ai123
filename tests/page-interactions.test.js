@@ -8,6 +8,7 @@ function createPage(name, request, syncPublishedProfile) {
   let definition;
   const calls = [];
   const wx = {
+    getStorageSync(key) { return key === "ai-network-owner-id" ? "interaction-fixture" : ""; },
     showToast() {},
     navigateBack() {},
     switchTab() {},
@@ -30,6 +31,7 @@ function createPage(name, request, syncPublishedProfile) {
       wx,
       setTimeout() {},
       require(id) {
+        if (id.endsWith("account-state")) return require("../miniprogram/utils/account-state");
         if (id.endsWith("consent"))
           return { hasAiConsent: () => false, withdrawAiConsent() {}, withdrawConsent() {} };
         return { request, syncPublishedProfile, clearSession() {}, showError() {} };
@@ -76,8 +78,11 @@ test("relationship repeated save taps issue one mutation until navigation", asyn
       finish = resolve;
     });
   });
-  page.data.contacts = [{ id: 2 }];
+  // The form now selects the person through its search list and blocks saving while loading.
+  page.data.loading = false;
+  page.data.targetId = 2;
   page.data.sourceId = 1;
+  page.ownerId = "interaction-fixture";
   page.save();
   page.save();
   assert.equal(mutations, 1);
@@ -117,15 +122,15 @@ test("profile editing blocks input and save during initial load", async () => {
   assert.equal(mutations, 1);
 });
 
-test("privacy retry refreshes confirmed publication status after syncing", async () => {
+test("import code page retry refreshes confirmed publication status after syncing", async () => {
   let profile = {
     nickname: "Name",
     visibility: { nickname: false },
     publicationStatus: "pending",
   };
   const { page } = createPage(
-    "settings-privacy",
-    () => Promise.resolve({ ...profile }),
+    "settings-friends",
+    (route) => Promise.resolve(route.endsWith("import-code") ? "123AB456" : { ...profile }),
     async () => {
       profile.publicationStatus = "synced";
     },
@@ -133,7 +138,8 @@ test("privacy retry refreshes confirmed publication status after syncing", async
   page.onShow();
   await flush();
   assert.equal(page.data.profile.publicationStatus, "pending");
-  await page.retryPublication();
+  assert.equal(page.data.publication.retry, true);
+  await page.publish();
   await flush();
   assert.equal(page.data.profile.publicationStatus, "synced");
 });

@@ -1,1 +1,6 @@
-{ "navigationBarTitleText": "联系人详情", "usingComponents": { "settings-entry": "/components/settings-entry/index" } }
+{
+  "navigationBarTitleText": "联系人详情",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
+}

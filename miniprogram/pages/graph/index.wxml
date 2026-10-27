@@ -4,7 +4,7 @@
     <view class="toolbar">
       <view class="search">
         <text class="search-icon">🔍</text>
-        <input class="search-input" placeholder="{{mode === 'tree' ? '搜索联系人或分类' : '搜索联系人 / 单位 / 城市'}}" value="{{keyword}}" bindinput="onSearchInput" bindconfirm="search" confirm-type="search" />
+        <input disabled="{{loading || loadError || canvasError}}" class="search-input" placeholder="{{mode === 'tree' ? '搜索联系人或分类' : '搜索联系人 / 单位 / 城市'}}" value="{{keyword}}" bindinput="onSearchInput" bindconfirm="search" confirm-type="search" />
         <text wx:if="{{keyword}}" class="search-clear" bindtap="clearSearch">×</text>
       </view>
       <view class="stats">
@@ -12,7 +12,7 @@
         <text class="pill">连线 {{edgeCount}}</text>
       </view>
     </view>
-    <view class="search-results" wx:if="{{searchResults.length}}">
+    <view class="search-results" wx:if="{{searchResults.length && !loading && !loadError && !canvasError}}">
       <scroll-view scroll-y class="search-results-body">
         <view class="search-result" wx:for="{{searchResults}}" wx:key="id" data-type="{{item.type}}" data-id="{{item.id}}" data-catid="{{item.catId}}" data-name="{{item.name}}" bindtap="locateResult">
           <view class="result-icon result-{{item.type}}">{{item.type === 'category' ? '分' : (item.type === 'contact' ? '联' : (item.type === 'org' ? '单' : (item.type === 'city' ? '城' : '人')))}}</view>
@@ -23,7 +23,7 @@
         </view>
       </scroll-view>
     </view>
-    <view class="search-results search-empty" wx:elif="{{keyword}}">
+    <view class="search-results search-empty" wx:elif="{{keyword && !loading && !loadError && !canvasError}}">
       <text>未找到「{{keyword}}」相关结果</text>
     </view>
   </view>
@@ -34,7 +34,7 @@
     <view class="mode-tab {{mode === 'network' ? 'on' : ''}}" data-mode="network" bindtap="switchMode">关系网</view>
     <view class="mode-actions">
       <button wx:if="{{mode === 'tree'}}" class="tool-btn" size="mini" bindtap="addTopCategory">+ 分类</button>
-      <button wx:if="{{mode === 'tree'}}" class="tool-btn" size="mini" bindtap="openManage">管理</button>
+      <button wx:if="{{mode === 'tree'}}" class="tool-btn" size="mini" bindtap="openManage" aria-label="管理分类">管理分类</button>
       <block wx:else>
         <button class="tool-btn" size="mini" bindtap="openSheet" data-sheet="filter">筛选</button>
         <button class="tool-btn" size="mini" bindtap="openSheet" data-sheet="rank">排行</button>
@@ -46,6 +46,11 @@
   <!-- 画布 -->
   <view class="stage">
     <canvas type="2d" id="graph" class="graph-canvas" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd" bindtouchcancel="onTouchEnd"></canvas>
+
+    <view class="graph-feedback" wx:if="{{loading || loadError || canvasError}}" role="status">
+      <view wx:if="{{loading}}">正在加载图谱…</view>
+      <block wx:else><view>{{canvasError || loadError}}</view><button class="secondary-button" bindtap="retryGraph">重新加载图谱</button></block>
+    </view>
 
     <!-- 顶部提示叠层：聚焦条 + 提示，纵向排列，互不遮挡 -->
     <view class="overlay-top">
@@ -67,19 +72,18 @@
     <!-- 顶部提示（已在 .overlay-top 中与聚焦条统一排布，此处不再单独渲染） -->
 
     <!-- 标签树 · 空数据引导（不遮挡画布，画布上仍有「我」与推荐分类） -->
-    <view class="tree-tip" wx:if="{{mode === 'tree' && empty}}">
+    <view class="tree-tip" wx:if="{{mode === 'tree' && empty && !loading && !loadError && !canvasError}}">
       <view class="tree-tip-title">从「我」开始搭建你的人脉树</view>
-      <view class="tree-tip-desc">双击画布上虚线的「+」推荐分类即可快速添加为分支，或点右上角「+ 分类」自定义（公司 / 大学 / 朋友…）。点「管理」可重命名、删除分类，或隐藏不想要的推荐分类。添加联系人后，点分类即可归入。<text class="tree-tip-hl">单击分支查看其联系人，双击分支可聚焦（隐藏其余分支），单击「我」退出聚焦。</text></view>
+      <view class="tree-tip-desc">双击画布上虚线的「+」推荐分类即可快速添加为分支，或点右上角「+ 分类」自定义（公司 / 大学 / 朋友…）。点「管理」可重命名、删除分类，或隐藏不想要的推荐分类。在联系人页添加联系人后，点分类「导入已有联系人」即可归入。<text class="tree-tip-hl">单击分支查看其联系人，双击分支可聚焦（隐藏其余分支），单击「我」退出聚焦。</text></view>
     </view>
 
     <!-- 关系网 · 空状态（网络模式无联系人不渲染） -->
-    <view class="empty-state" wx:if="{{empty && mode === 'network'}}">
+    <view class="empty-state" wx:if="{{empty && mode === 'network' && !loading && !loadError && !canvasError}}">
       <view class="empty-card">
         <view class="empty-emoji">🕸️</view>
         <view class="empty-title">还没有人脉数据</view>
-        <view class="empty-desc">关系网会根据你添加的「联系人」和「关系」自动生成。先添加你的第一个联系人吧。</view>
-        <button class="primary-button empty-cta" bindtap="addFirst">添加第一个联系人</button>
-        <button class="secondary-button empty-cta" bindtap="goContacts">去联系人页</button>
+        <view class="empty-desc">关系网会根据你添加的「联系人」和「关系」自动生成。请先到联系人页添加联系人。</view>
+        <button class="primary-button empty-cta" bindtap="goContacts">去联系人页</button>
       </view>
     </view>
   </view>
@@ -102,7 +106,6 @@
       </view>
       <view class="sheet-actions">
         <button class="primary-button" bindtap="addTopCategory">新建分类</button>
-        <button class="secondary-button" bindtap="addFirst">添加联系人</button>
         <button class="secondary-button" bindtap="goContacts">查看全部联系人</button>
       </view>
     </scroll-view>
@@ -125,7 +128,7 @@
         <text class="member-org">{{item.org}}</text>
         <text class="chevron">›</text>
       </view>
-      <view class="empty" wx:if="{{!selected.contacts.length}}">暂无联系人，点下方按钮添加</view>
+      <view class="empty" wx:if="{{!selected.contacts.length}}">{{selected.synthetic ? '所有联系人都已归类' : '暂无联系人，点下方按钮导入已有联系人'}}</view>
 
       <!-- 子分类 -->
       <view class="section-title" wx:if="{{selected.childCategories.length}}">子分类（{{selected.childCategories.length}}）</view>
@@ -138,17 +141,40 @@
 
       <!-- 操作 -->
       <view class="sheet-actions">
-        <button class="primary-button" data-id="{{selected.id}}" bindtap="addContactToCategory">在此分类添加联系人</button>
         <block wx:if="{{selected.synthetic}}">
-          <view class="sheet-note">「未归类」为自动汇总，添加联系人时可从对应分类入口归类。</view>
+          <view class="sheet-note">「未分类」为自动汇总。打开具体分类，点「导入已有联系人」即可归类。</view>
         </block>
         <block wx:else>
+          <button class="primary-button" data-id="{{selected.id}}" bindtap="openImport">导入已有联系人</button>
           <button class="secondary-button" data-id="{{selected.id}}" bindtap="addChildCategory">新建子分类</button>
           <button class="secondary-button" data-id="{{selected.id}}" bindtap="renameCategory">重命名</button>
           <button class="danger-button" data-id="{{selected.id}}" data-name="{{selected.name}}" bindtap="deleteCategory">删除分类</button>
         </block>
       </view>
     </scroll-view>
+  </view>
+
+  <!-- 抽屉：导入已有联系人到分类 -->
+  <view class="sheet" wx:if="{{sheet === 'import'}}">
+    <view class="sheet-head">
+      <text class="sheet-title">{{sheetTitle}}</text>
+      <text class="sheet-close" bindtap="closeSheet">×</text>
+    </view>
+    <view class="import-search">
+      <input class="search-input" placeholder="搜索姓名、单位、职务或城市" value="{{importKeyword}}" bindinput="onImportKeyword" />
+    </view>
+    <scroll-view scroll-y class="sheet-body import-body">
+      <view class="member" wx:for="{{importList}}" wx:key="id" data-id="{{item.id}}" bindtap="toggleImport" aria-role="checkbox" aria-checked="{{item.checked}}">
+        <view class="import-check {{item.checked ? 'import-check--on' : ''}}">{{item.checked ? '✓' : ''}}</view>
+        <text class="member-name">{{item.name}}</text>
+        <text class="member-org">{{item.org}}</text>
+      </view>
+      <view class="empty" wx:if="{{!importList.length}}">{{importTotal ? '没有符合条件的联系人' : '所有联系人都已在此分类中，可到联系人页新增联系人'}}</view>
+    </scroll-view>
+    <view class="sheet-actions import-actions">
+      <button class="primary-button" bindtap="confirmImport" disabled="{{!importCount}}">导入{{importCount ? ' ' + importCount + ' 位' : ''}}</button>
+      <button class="secondary-button" bindtap="backToBranch">返回分类</button>
+    </view>
   </view>
 
   <!-- 抽屉：分类管理（增删改 · 推荐隐藏/恢复） -->
@@ -158,6 +184,7 @@
       <text class="sheet-close" bindtap="closeSheet">×</text>
     </view>
     <scroll-view scroll-y class="sheet-body">
+      <view class="category-help">标签树按分类分组；联系人标签在联系人页管理，用于筛选。分类与标签不会自动互相转换。</view>
       <view class="section-title">我的分类（{{manageCategories.length}}）</view>
       <view class="manage-row" wx:for="{{manageCategories}}" wx:key="id">
         <view class="manage-info" style="padding-left:{{item.indent}}rpx">
