@@ -17,7 +17,7 @@ function pageFor(request, wx = {}) {
   let definition;
   vm.runInNewContext(source, {
     require: name => name.endsWith("/api") ? { request, showError: error => { throw error; } } : graph,
-    Page: value => { definition = value; }, wx, setTimeout, clearTimeout
+    Page: value => { definition = value; }, wx: { ...global.wx, ...wx }, Error, setTimeout, clearTimeout
   });
   return { ...definition, data: structuredClone(definition.data), cssW: 360, cssH: 640,
     setData(updates) { Object.assign(this.data, updates); } };
@@ -26,6 +26,7 @@ function seed() {
   store.clear();
   const owner = "graph-page-owner";
   local.migrate(owner, { ownerId: owner, profile: { nickname: "本人" }, contacts: [{ id: 1, ownerId: owner, name: "旧姓名" }], relationships: [] });
+  store.set("ai-network-owner-id", owner);
   return owner;
 }
 

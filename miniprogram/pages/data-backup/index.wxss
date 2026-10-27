@@ -11,3 +11,15 @@
 
 .backup-reminder { padding: 20rpx; margin-bottom: 24rpx; border-radius: 8rpx; background: #e8f2fa; color: #244b68; font-size: 26rpx; line-height: 1.6; }
 .backup-status { padding: 16rpx 0; color: #2563eb; font-size: 26rpx; }
+.backup-reminder,.backup-section,.preview { box-sizing:border-box; min-width:0; max-width:100%; word-wrap:break-word; }
+.backup-section text,.backup-status { word-wrap:break-word; }
+.backup-page .backup-section button { width:100%; }
+.preview view:not(.preview-title) { min-width:0; flex-wrap:wrap; }
+.preview view text { min-width:0; word-wrap:break-word; }
+.backup-summary { background:#fff; border:1rpx solid var(--line); border-radius:14rpx; padding:20rpx; font-size:24rpx; color:var(--muted); word-wrap:break-word; }
+.backup-summary > view { margin:8rpx 0; }
+.backup-history-row { padding:20rpx 0; border-bottom:1rpx solid var(--line); font-size:25rpx; color:var(--ink); word-wrap:break-word; }
+.backup-history-row > text { display:block; font-size:23rpx; color:var(--muted); margin-top:8rpx; }
+.password-hint { display: flex; align-items: center; justify-content: space-between; min-height: 48rpx; }
+.password-hint .ui-link { margin: 0 0 0 auto; }
+.password-mismatch { color: #b42318; font-size: 24rpx; }

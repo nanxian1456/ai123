@@ -7,3 +7,17 @@
 .permission-note view { color:#1f3a57; font-size:28rpx; font-weight:600; }
 .permission-note text { display:block; margin-top:11rpx; color:#738493; font-size:23rpx; line-height:1.65; }
 .copy-button { margin-top:20rpx; background:#e9f4ff; color:#2563eb; font-size:27rpx; }
+.friend-card,.import-code { max-width:100%; min-width:0; box-sizing:border-box; }
+.friend-title,.friend-description,.permission-note text { word-wrap:break-word; }
+.import-code { word-break:break-all; }
+.page .copy-button { width:100%; }
+.visibility-card { margin-top:20rpx; padding:0 25rpx; }
+.visibility-row { display:flex; align-items:center; justify-content:space-between; gap:20rpx; min-width:0; min-height:104rpx; padding:16rpx 0; box-sizing:border-box; border-bottom:1rpx solid #edf1f3; }
+.visibility-row:last-child { border-bottom:0; }
+.visibility-row > view { flex:1; min-width:0; word-wrap:break-word; }
+.visibility-row > view > text:first-child { display:block; color:#1f3a57; font-size:29rpx; font-weight:600; }
+.visibility-row > view > text:last-child { display:block; margin-top:6rpx; color:#8a98a5; font-size:20rpx; }
+.visibility-row switch { flex:none; transform:scale(.82); transform-origin:right center; }
+.public-preview { margin-top:24rpx; }
+.preview-fields { margin-top:22rpx; line-height:1.8; color:var(--ink); font-size:26rpx; word-wrap:break-word; overflow-wrap:anywhere; }
+.preview-fields > text { white-space:pre-wrap; }

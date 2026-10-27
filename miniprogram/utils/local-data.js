@@ -1,6 +1,8 @@
 const PREFIX = "ai-network-local-v1:";
 const { SUGGESTED_TAGS } = require("./contact-tags");
 const categories = require("./categories");
+const { contactMatchesKeyword } = require("./contact-search");
+const regions = require("./regions");
 const PRIVATE = { avatar: false, nickname: false, organization: false, position: false, city: false, bio: false };
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SURNAMES = "赵Z钱Q孙S李L周Z吴W郑Z王W冯F陈C褚C卫W蒋J沈S韩H杨Y朱Z秦Q尤Y许X何H吕L施S张Z孔K曹C严Y华H金J魏W陶T姜J戚Q谢X邹Z喻Y柏B水S窦D章Z云Y苏S潘P葛G奚X范F彭P郎L鲁L韦W昌C马M苗M凤F花H方F俞Y任R袁Y柳L鲍B史S唐T费F廉L岑C薛X雷L贺H倪N汤T滕T殷Y罗L毕B郝H邬W安A常C乐Y于Y时S傅F皮P卞B齐Q康K伍W余Y元Y卜B顾G孟M平P黄H和H穆M萧X尹Y姚Y邵S湛Z汪W祁Q毛M禹Y狄D米M贝B明M臧Z计J伏F成C戴D宋S茅M庞P熊X纪J舒S屈Q项X祝Z董D梁L杜D阮R蓝L闵M席X季J麻M强Q贾J路L娄L危W江J童T颜Y郭G梅M盛S林L刁D钟Z徐X邱Q骆L高G夏X蔡C田T樊F胡H凌L霍H虞Y万W支Z柯K昝Z管G卢L莫M经J房F裘Q缪M干G解X应Y宗Z丁D宣X贲B邓D郁Y单S杭H洪H包B诸Z左Z石S崔C吉J龚G程C嵇J邢X滑H裴P陆L荣R翁W荀X羊Y惠H甄Z曲Q家J封F芮R羿Y储C靳J汲J邴B糜M松S井J段D富F巫W乌W焦J巴B弓G牧M隗W山S谷G车C侯H宓M蓬P全Q郗X班B仰Y秋Q仲Z伊Y宫G宁N仇Q栾L暴B甘G钭T厉L戎R祖Z武W符F刘L景J詹Z束S龙L叶Y幸X司S韶S黎L蓟J薄B印Y宿S白B怀H蒲P台T从C鄂E索S赖L卓Z蔺L屠T蒙M池C乔Q阴Y胥X能N苍C双S闻W莘S党D翟Z谭T贡G劳L逄P姬J申S扶F堵D冉R宰Z郦L雍Y却Q璩Q桑S桂G濮P牛N寿S通T边B扈H燕Y冀J郏J浦P尚S农N温W别B庄Z晏Y柴C瞿Q阎Y充C慕M连L茹R习X宦H艾A鱼Y容R向X古G易Y慎S戈G廖L庾Y终Z暨J居J衡H步B都D耿G满M弘H匡K国G文W寇K广G禄L阙Q东D欧O殳S沃W利L蔚W越Y夔K隆L师S巩G厍S聂N晁C勾G敖A融R冷L訾Z辛X阚K那N简J饶R空K曾Z毋W沙S乜N养Y鞠J须X丰F巢C关G蒯K相X查Z后H荆J红H游Y竺Z权Q逯L盖G益Y桓H公G";
@@ -232,8 +234,17 @@ function write(ownerId, value) {
     wx.setStorageSync(key(ownerId), { storage: SHARDED, version: 1, ownerId, generation, count: shards.length, bytes, parts });
   } catch (_) { cleanupKeys(attemptedKeys); throw storageError(); }
   cleanupGeneration(ownerId, previous, new Set(keys));
+  markChanged(ownerId);
   return value;
 }
+// When the account's data last changed, compared with the latest backup to tell whether a new one is needed.
+// Best effort: a failed marker must not turn a committed save into an error.
+function changedKey(ownerId) { return `ai-network-data-changed:${ownerId}`; }
+function markChanged(ownerId) { try { wx.setStorageSync(changedKey(ownerId), Date.now()); } catch (_) { /* optional */ } }
+function changedAt(ownerId) {
+  try { const value = wx.getStorageSync(changedKey(ownerId)); return Number.isFinite(value) && value > 0 ? value : 0; } catch (_) { return 0; }
+}
+function forgetChanged(ownerId) { try { wx.removeStorageSync(changedKey(ownerId)); } catch (_) { /* optional */ } }
 function storageUsage() {
   if (typeof wx.getStorageInfoSync !== "function") return null;
   const info = wx.getStorageInfoSync();
@@ -299,13 +310,18 @@ function count(values) {
   return Array.from(counts, ([name, amount]) => ({ name, count: amount })).sort((a, b) => a.name.localeCompare(b.name, "zh"));
 }
 function matchContact(contact, query) {
-  const keyword = (query.get("keyword") || "").toLowerCase().trim();
   const exactRegion = query.has("country") || query.has("province");
-  return (!keyword || [contact.name, contact.organization, contact.position].some(value => (value || "").toLowerCase().includes(keyword)))
-    && ["country", "province", "city"].every(field => {
-      if (!query.has(field) || (!exactRegion && !query.get(field))) return true;
-      return (contact[field] || "") === query.get(field);
-    })
+  // Searches every text the user typed for a contact, not only name, organization and position.
+  return contactMatchesKeyword(contact, query.get("keyword"))
+    && (() => {
+      // Places compare in canonical form, so "江苏省" and "江苏" select the same contacts.
+      const place = regions.regionOf(contact);
+      const wanted = regions.normalizePath({ country: query.get("country"), province: query.get("province"), city: query.get("city") });
+      return ["country", "province", "city"].every(field => {
+        if (!query.has(field) || (!exactRegion && !query.get(field))) return true;
+        return place[field] === wanted[field];
+      });
+    })()
     && (!query.get("tag") || (contact.tags || []).includes(query.get("tag")));
 }
 function findContact(data, id) {
@@ -313,13 +329,32 @@ function findContact(data, id) {
   if (!contact) throw new Error("联系人不存在");
   return contact;
 }
+// How a relationship reads from the other person; types not listed read the same both ways.
+const REVERSE_TYPES = { "指导": "导师", "导师": "指导", "学生": "指导" };
+function relationshipLabel(item, contactId) {
+  return item.sourceId === contactId ? item.type : REVERSE_TYPES[item.type] || item.type;
+}
 function relationshipView(data, contactId, item) {
   const outgoing = item.sourceId === contactId;
   const other = findContact(data, outgoing ? item.targetId : item.sourceId);
-  const reverse = { "指导": "导师", "导师": "指导", "学生": "指导" };
-  const label = outgoing ? item.type : reverse[item.type] || item.type;
+  const label = relationshipLabel(item, contactId);
   const summary = [other.organization, item.note].filter(Boolean).join(" · ");
-  return { id: item.id, type: item.type, label, summary, other: { id: other.id, name: other.name, organization: other.organization } };
+  return { id: item.id, type: item.type, label, note: item.note || "", summary, other: { id: other.id, name: other.name, organization: other.organization } };
+}
+// The same two people with the same relationship, seen from either side, is one relationship;
+// a different note does not make it another one.
+function relationshipInput(data, payload, exceptId) {
+  if (!payload || typeof payload !== "object") throw new Error("关系资料无效");
+  const source = findContact(data, payload.sourceId);
+  const target = findContact(data, payload.targetId);
+  if (source.id === target.id) throw new Error("关系对象无效");
+  const type = text(payload.type, "关系类型", 30, true);
+  const note = text(payload.note, "关系备注", 200);
+  const duplicate = data.relationships.some(item => item.id !== exceptId &&
+    ((item.sourceId === source.id && item.targetId === target.id) || (item.sourceId === target.id && item.targetId === source.id)) &&
+    relationshipLabel(item, source.id) === type);
+  if (duplicate) throw new Error(`${source.name}与${target.name}之间的“${type}”关系已存在，可直接编辑原有关系`);
+  return { sourceId: source.id, targetId: target.id, type, note };
 }
 function handle(ownerId, path, method = "GET", payload) {
   const data = requireData(ownerId);
@@ -339,6 +374,7 @@ function handle(ownerId, path, method = "GET", payload) {
       const avatarType = payload.avatarType || data.profile.avatarType;
       if (!["male-1", "male-2", "female-1", "female-2"].includes(avatarType)) throw new Error("头像类型无效");
       data.profile = { ...data.profile, nickname, organization: text(payload.organization, "单位", 60), position: text(payload.position, "职务", 40), city: text(payload.city, "城市", 30), bio: text(payload.bio, "简介", 200), avatarType, profileCompleted: true };
+      if (payload.resetAvatar === true) data.profile.avatarUrl = "";
       write(ownerId, data);
       return data.profile;
     }
@@ -399,44 +435,49 @@ function handle(ownerId, path, method = "GET", payload) {
   }
   if (route === "/relationships" && method === "GET") return data.relationships;
   if (route === "/relationships" && method === "POST") {
-    const source = findContact(data, payload.sourceId);
-    const target = findContact(data, payload.targetId);
-    if (source.id === target.id) throw new Error("关系对象无效");
-    const type = text(payload.type, "关系类型", 30, true);
-    const note = text(payload.note, "关系备注", 200);
-    if (data.relationships.some(item => item.sourceId === source.id && item.targetId === target.id && item.type === type && (item.note || "") === note)) throw new Error("相同关系已存在");
-    const relationship = { id: data.nextRelationshipId++, ownerId, sourceId: source.id, targetId: target.id, type, note };
+    const relationship = { id: data.nextRelationshipId, ownerId, ...relationshipInput(data, payload) };
+    data.nextRelationshipId++;
     data.relationships.push(relationship);
     write(ownerId, data);
     return relationship;
   }
-  const deleteRelationship = route.match(/^\/relationships\/(\d+)$/);
-  if (deleteRelationship && method === "DELETE") {
-    const length = data.relationships.length;
-    data.relationships = data.relationships.filter(item => item.id !== Number(deleteRelationship[1]));
-    if (data.relationships.length === length) throw new Error("关系不存在");
-    write(ownerId, data);
-    return null;
+  const relationshipItem = route.match(/^\/relationships\/(\d+)$/);
+  if (relationshipItem) {
+    const id = Number(relationshipItem[1]);
+    const existing = data.relationships.find(item => item.id === id);
+    if (!existing) throw new Error("关系不存在");
+    if (method === "GET") return existing;
+    // Editing may also re-orient the relationship to the person it is edited from.
+    if (method === "PATCH") {
+      Object.assign(existing, relationshipInput(data, payload, id));
+      write(ownerId, data);
+      return existing;
+    }
+    if (method === "DELETE") {
+      data.relationships = data.relationships.filter(item => item.id !== id);
+      write(ownerId, data);
+      return null;
+    }
   }
   if (route === "/dashboard" && method === "GET") return {
     contactCount: data.contacts.length,
     organizationCount: new Set(data.contacts.map(item => item.organization).filter(Boolean)).size,
-    cityCount: new Set(data.contacts.map(item => item.city).filter(Boolean)).size,
+    cityCount: new Set(data.contacts.map(item => regions.regionOf(item).city).filter(Boolean)).size,
     recentContacts: data.contacts.slice().sort((a, b) => b.id - a.id).slice(0, 3)
   };
-  if (route === "/maps/cities" && method === "GET") return count(data.contacts.map(item => item.city));
+  if (route === "/maps/cities" && method === "GET") return count(data.contacts.map(item => regions.regionOf(item).city));
   if (route === "/maps/regions" && method === "GET") {
     const level = query.get("level") || "country";
-    const country = query.get("country");
-    const province = query.get("province");
+    const { country, province } = regions.normalizePath({ country: query.get("country"), province: query.get("province") });
     const sample = query.get("sample") === "true";
     if (!["country", "province", "city"].includes(level)) throw new Error("无效的地区层级");
     const counts = new Map();
     const samples = new Map();
     data.contacts.forEach(item => {
-      if (level !== "country" && (item.country || "") !== country) return;
-      if (level === "city" && (item.province || "") !== province) return;
-      const name = level === "country" ? (item.country || "") : level === "province" ? (item.province || "") : (item.city || "");
+      const place = regions.regionOf(item);
+      if (level !== "country" && place.country !== country) return;
+      if (level === "city" && place.province !== province) return;
+      const name = level === "country" ? place.country : level === "province" ? place.province : place.city;
       counts.set(name, (counts.get(name) || 0) + 1);
       if (!sample) return;
       if (!samples.has(name)) samples.set(name, []);
@@ -447,6 +488,35 @@ function handle(ownerId, path, method = "GET", payload) {
       if (sample) entry.sample = (samples.get(name) || []).slice(0, 3).map(contact => ({ id: contact.id, name: contact.name, initial: initial(contact.name) }));
       return entry;
     }).sort((a, b) => b.count - a.count || String(a.name).localeCompare(String(b.name), "zh"));
+  }
+  // Finds places at every level and contacts anywhere, for the map's cross-level search.
+  if (route === "/maps/search" && method === "GET") {
+    const keyword = query.get("keyword").trim();
+    if (!keyword) return { regions: [], contacts: [] };
+    const kw = keyword.toLowerCase();
+    const aliases = [kw, regions.normalizeCountry(keyword), regions.normalizeProvince(keyword), regions.normalizeCity(keyword)]
+      .map(value => value.toLowerCase()).filter(Boolean);
+    const hit = name => !!name && aliases.some(alias => name.toLowerCase().includes(alias));
+    const places = new Map();
+    const add = (level, place) => {
+      const key = JSON.stringify([level, place.country, level === "country" ? "" : place.province, level === "city" ? place.city : ""]);
+      const entry = places.get(key) || { level, country: place.country, province: level === "country" ? "" : place.province, city: level === "city" ? place.city : "", count: 0 };
+      entry.count++;
+      places.set(key, entry);
+    };
+    const contacts = [];
+    data.contacts.forEach(item => {
+      const place = regions.regionOf(item);
+      if (hit(place.country)) add("country", place);
+      if (place.country && hit(place.province)) add("province", place);
+      if (place.country && place.province && hit(place.city)) add("city", place);
+      if (contactMatchesKeyword(item, keyword)) contacts.push({ id: item.id, name: item.name, organization: item.organization || "", ...place });
+    });
+    const order = { country: 0, province: 1, city: 2 };
+    return {
+      regions: Array.from(places.values()).sort((a, b) => b.count - a.count || order[a.level] - order[b.level]).slice(0, 20),
+      contacts: contacts.slice(0, 20)
+    };
   }
   if (route === "/tags" && method === "GET") {
     const counts = new Map(count(data.contacts.flatMap(item => item.tags || [])).map(item => [item.name, item.count]));
@@ -465,4 +535,4 @@ function handle(ownerId, path, method = "GET", payload) {
   throw new Error("本地接口暂不支持此操作");
 }
 
-module.exports = { read, migrate, handle, write, key, initial, storageUsage };
+module.exports = { read, migrate, handle, write, key, initial, storageUsage, changedAt, forgetChanged };

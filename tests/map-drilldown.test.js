@@ -44,6 +44,10 @@ test("map drills from country to city contacts and back", async () => {
         },
         showError: error => { throw error; }
       };
+      if (id.includes("contact-search")) return require(path.join(__dirname, "../miniprogram/utils/contact-search.js"));
+      if (id.includes("utils/globe")) return require(path.join(__dirname, "../miniprogram/utils/globe.js"));
+      if (id.includes("region-points")) return require(path.join(__dirname, "../miniprogram/utils/region-points.js"));
+      if (id.includes("local-data")) return { changedAt: () => 0 };
       if (id.includes("world.js")) return [];
       if (id.includes("jiangsu.js")) return require(path.join(__dirname, "../miniprogram/assets/data/jiangsu.js"));
       return { createScopedThreejs() {} };
@@ -88,7 +92,7 @@ test("map drills from country to city contacts and back", async () => {
   assert.equal(page.data.citySelected, true);
   assert.equal(page.data.city, "Nanjing");
   assert.equal(page.data.total, 1);
-  assert.equal(page.data.cityContacts.length, 1);
+  assert.equal(page.data.cityContactCount, 1);
   assert.equal(page.data.center.latitude, 32);
   assert.equal(page.data.markers[0].latitude, 32.1);
   assert.equal(page.data.markers[0].longitude, 118.9);
@@ -118,7 +122,7 @@ test("map drills from country to city contacts and back", async () => {
   page.backToCityList();
   await pending;
   assert.equal(page.data.citySelected, false);
-  assert.equal(page.data.cityContacts.length, 0);
+  assert.equal(page.data.cityContactCount, 0);
   page.backToCountry();
   await pending;
   assert.equal(page.data.level, "province");

@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -48,6 +49,18 @@ class LocalMapLocationsTests {
                 .andExpect(jsonPath("$.center.longitude").value(118.80))
                 .andExpect(jsonPath("$.markers").isEmpty());
         verifyNoInteractions(contacts, geocoder);
+    }
+
+    @Test
+    void aForeignCityDoesNotRequireAProvince() throws Exception {
+        when(geocoder.locate("新加坡 Singapore")).thenReturn(new MapGeocoder.Location(1.35, 103.82));
+        mvc.perform(post("/api/maps/locations").contentType(MediaType.APPLICATION_JSON).content("""
+                {"level":"city","country":"新加坡","province":"","city":"Singapore","regions":[]}
+                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.center.latitude").value(1.35))
+                .andExpect(jsonPath("$.markers").isEmpty());
+        verifyNoInteractions(contacts);
     }
 
     @Test

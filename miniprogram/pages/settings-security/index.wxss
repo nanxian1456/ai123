@@ -11,3 +11,10 @@
 .logout-link view text:first-child { display:block; color:#c95752; font-size:29rpx; font-weight:600; }
 .logout-link view text:last-child { display:block; margin-top:8rpx; color:#8795a1; font-size:21rpx; }
 .chevron { margin-left:18rpx; color:#a5b0ba; font-size:43rpx; }
+.security-status > view,.logout-link > view { flex:1; min-width:0; word-wrap:break-word; }
+.security-detail { min-width:0; gap:20rpx; padding:16rpx 0; box-sizing:border-box; }
+.security-detail text:first-child { flex:none; max-width:40%; }
+.security-detail text:last-child { flex:1; min-width:0; text-align:right; word-wrap:break-word; }
+.logout-link .chevron { flex:none; }
+.account-deletion-card { margin-top:28rpx; box-shadow:none; }
+.account-deletion-card .section-title { margin:0 0 20rpx; }

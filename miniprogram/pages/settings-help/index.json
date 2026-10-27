@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "帮助与反馈",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
+}

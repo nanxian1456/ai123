@@ -38,6 +38,8 @@ function createPage(request, { aiConsent = true } = {}) {
         ? require("../miniprogram/utils/duplicates")
         : moduleId.includes("contact-tags")
           ? require("../miniprogram/utils/contact-tags")
+          : moduleId.includes("regions")
+            ? require("../miniprogram/utils/regions")
           : {
               request: (...args) => {
                 calls.requests.push(args);

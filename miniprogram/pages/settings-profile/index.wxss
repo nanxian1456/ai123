@@ -11,3 +11,8 @@
 .details text:last-child { color:#1f3a57; text-align:right; word-break:break-all; }
 .edit-button { height:92rpx; display:flex; align-items:center; justify-content:center; margin-top:28rpx; border-radius:10rpx; color:#fff; background:#2563eb; font-size:29rpx; font-weight:600; }
 .edit-button::after { border:0; }
+.profile-copy { flex:1; word-wrap:break-word; }
+.profile-copy view,.profile-copy text { min-width:0; word-wrap:break-word; }
+.details > view { min-width:0; }
+.details text:first-child { max-width:35%; }
+.details text:last-child { flex:1; min-width:0; word-wrap:break-word; }

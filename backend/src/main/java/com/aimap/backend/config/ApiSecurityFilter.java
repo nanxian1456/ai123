@@ -70,7 +70,7 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
         String owner = verifiedOwner(request);
         String category;
         int limit;
-        if (path.equals("/api/auth/wechat-login")) { category = "login"; limit = 10; }
+        if (path.equals("/api/auth/wechat-login") || path.equals("/api/auth/account-deletion-status")) { category = "login"; limit = 10; }
         else if (path.equals("/api/me/avatar") && !read) { category = "avatar"; limit = 12; }
         else if (path.equals("/api/ai/extract")) { category = "ai"; limit = aiLimit; }
         else if (path.startsWith("/api/users/importable/")) { category = "import"; limit = importLimit; }

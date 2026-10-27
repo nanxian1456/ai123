@@ -122,7 +122,7 @@ test("contacts list has a loading state and clears it after real local reads", a
   assert.equal(page.data.loading, true);
   await loading;
   assert.equal(page.data.loading, false);
-  assert.equal(page.data.contacts[0].name, '甲');
+  assert.equal(page.contactList[0].name, '甲');
 });
 test("real form save, tag filter and category manager agree with the restored backup", async () => {
   seed(); wx.navigateBack = () => {}; wx.setNavigationBarTitle = () => {};
@@ -133,15 +133,15 @@ test("real form save, tag filter and category manager agree with the restored ba
   await form.save(); await form.save();
   const contacts = pageFor('contacts');
   contacts.setData({ selectedTag: '合作' }); await contacts.loadContacts();
-  assert.equal(contacts.data.contacts.length, 1, 'repeated save cannot create a second contact');
-  const saved = contacts.data.contacts[0];
+  assert.equal(contacts.contactList.length, 1, 'repeated save cannot create a second contact');
+  const saved = contacts.contactList[0];
   const graph = pageFor('graph'); await graph.loadAll(); graph.openManage();
   assert.equal(graph.data.manageCategories[0].contactCount, 1);
   const encrypted = await backup.create(owner, 'flow-test-password');
   await api.request(`/contacts/${saved.id}`, 'DELETE');
   await backup.restore(owner, await backup.openAsync(encrypted, 'flow-test-password', owner));
   await contacts.loadContacts(); await graph.loadAll();
-  assert.equal(contacts.data.contacts[0].name, '流程测试甲');
+  assert.equal(contacts.contactList[0].name, '流程测试甲');
   assert.equal(graph.getBranchContacts(category.id)[0].name, '流程测试甲');
   assert.equal(graph.data.manageCategories[0].contactCount, 1);
 });
@@ -180,19 +180,25 @@ test("saved contact coordinates remain visible when the location service is unav
   assert.equal(page.data.filteredContacts.length, 1);
   assert.equal(page.data.markers[0]?.latitude, 32.1);
   assert.equal(page.data.markers[0]?.longitude, 118.9);
-  assert.equal(page.data.center?.latitude, 32.1);
+  // The city centre comes from the offline table, so no lookup is needed.
+  assert.deepEqual(page.data.center, { latitude: 32.06, longitude: 118.8 });
+  assert.equal(page.data.mapError, "");
 });
 
 test("an explicitly unspecified country or city does not include contacts from other regions", async () => {
   seed();
   addContact("国内", "南京");
-  addContact("未设国家", "南京", { country: "" });
+  // A recognisable mainland place fills in the country, so the unspecified case uses an unknown place.
+  addContact("未设国家", "某镇", { country: "", province: "某州" });
+  addContact("推断国家", "南京", { country: "" });
   addContact("未设城市", "", { province: "" });
-  const unknownCountry = await api.request("/contacts/directory?country=&province=" + encodeURIComponent("江苏") + "&city=" + encodeURIComponent("南京"));
+  const unknownCountry = await api.request("/contacts/directory?country=&province=" + encodeURIComponent("某州") + "&city=" + encodeURIComponent("某镇"));
   assert.deepEqual(unknownCountry.map(contact => contact.name), ["未设国家"]);
+  const inferred = await api.request("/contacts/directory?country=" + encodeURIComponent("中国") + "&province=" + encodeURIComponent("江苏") + "&city=" + encodeURIComponent("南京"));
+  assert.deepEqual(inferred.map(contact => contact.name).sort(), ["国内", "推断国家"].sort());
   const unknownCity = await api.request("/contacts/directory?country=" + encodeURIComponent("中国") + "&province=&city=");
   assert.deepEqual(unknownCity.map(contact => contact.name), ["未设城市"]);
-  assert.equal((await api.request("/contacts/directory?keyword=")).length, 3);
+  assert.equal((await api.request("/contacts/directory?keyword=")).length, 4);
 });
 
 test("a historical category tree beyond the new creation limit can be backed up and restored intact", async () => {
@@ -270,14 +276,15 @@ test("refreshing an open network contact preserves its actual relationship count
 
 test("a map hidden during a location lookup cannot be changed by the late response", async () => {
   seed();
-  addContact("甲", "南京");
+  // A place missing from the offline table, so its coordinates are looked up.
+  addContact("甲", "圣胡安", { country: "美国", province: "波多黎各" });
   const previousRequest = wx.request;
   let finish;
   wx.request = options => { finish = () => options.success({ statusCode: 200,
-    data: { center: { latitude: 32, longitude: 118 }, markers: [{ name: "江苏", latitude: 32, longitude: 118 }] } }); };
+    data: { center: { latitude: 38, longitude: -97 }, markers: [{ name: "波多黎各", latitude: 18.2, longitude: -66.5 }] } }); };
   try {
     const page = pageFor("map");
-    page.setData({ level: "province", country: "中国" });
+    page.setData({ level: "province", country: "美国" });
     const pending = page.load();
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(typeof finish, "function");

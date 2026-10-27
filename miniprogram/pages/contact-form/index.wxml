@@ -1,8 +1,14 @@
-<view class="page">
-  <settings-entry />
+<view class="page ui-page contact-editor">
+  <view class="ui-page-heading"><view class="ui-eyebrow">{{id ? '维护这段连接' : '记录一段新的连接'}}</view><view class="ui-title">{{id ? '编辑联系人' : '新增联系人'}}</view><view class="ui-subtitle">先记录姓名，其他资料可以随时补充。</view></view>
+  <view class="entry-tabs">
+    <button class="entry-tab {{entryMode === 'manual' ? 'is-active' : ''}}" data-mode="manual" bindtap="selectEntryMode" disabled="{{saving || loading || extracting || importing}}">手动填写</button>
+    <button class="entry-tab {{entryMode === 'ai' ? 'is-active' : ''}}" data-mode="ai" bindtap="selectEntryMode" disabled="{{saving || loading || extracting || importing}}">AI 整理</button>
+    <button wx:if="{{!id}}" class="entry-tab {{entryMode === 'code' ? 'is-active' : ''}}" data-mode="code" bindtap="selectEntryMode" disabled="{{saving || loading || extracting || importing}}">导入码</button>
+    <button wx:if="{{!id}}" class="entry-tab {{entryMode === 'batch' ? 'is-active' : ''}}" data-mode="batch" bindtap="selectEntryMode" disabled="{{saving || loading || extracting || importing}}">批量录入</button>
+  </view>
   <view wx:if="{{loading}}" class="app-state" role="status">正在加载联系人资料…</view>
-  <view wx:if="{{loadFailed}}" class="app-state app-state--error">联系人资料加载失败，重试后才能编辑。<button class="app-action" bindtap="retryLoad">重新加载</button></view>
-  <view class="card ai-card">
+  <view wx:if="{{loadFailed}}" class="app-state app-state--error">资料加载失败，重新加载后可继续编辑。<button class="app-action" bindtap="retryLoad">重新加载</button></view>
+  <view class="card entry-card ai-card" wx:if="{{entryMode === 'ai'}}">
     <view class="paste-heading"><view class="form-title">粘贴联系人信息</view><text>{{aiText.length}}/4000</text></view>
     <textarea class="paste-input" placeholder="粘贴人物介绍或联系人资料" value="{{aiText}}" bindinput="aiInput" maxlength="4000" />
     <view class="paste-actions">
@@ -19,23 +25,39 @@
       <button class="apply-draft" disabled="{{loading || loadFailed}}" bindtap="applyAiDraft">填入联系人信息</button>
     </view>
   </view>
-  <view class="card import-card" wx:if="{{!id}}">
+  <view class="card import-card" wx:if="{{entryMode === 'code' && !id}}">
     <view class="form-title">通过八位码导入</view>
     <view class="import-row"><input value="{{importCode}}" bindinput="importCodeInput" maxlength="8" placeholder="3位数字 + 2位字母 + 3位数字"/><button class="import-button" bindtap="importByCode" loading="{{importing}}" disabled="{{importing}}">导入</button></view>
     <text>仅填入对方主动公开的资料，保存后联系人仍只在本机。</text>
   </view>
-  <button class="batch-button" bindtap="openBatch">批量录入联系人</button>
-  <view class="section-title" id="contact-form">联系人信息</view>
-  <view class="card form">
-    <view class="field"><text>姓名 *</text><input data-field="name" disabled="{{loading || loadFailed || saving}}" value="{{form.name}}" bindinput="input" placeholder="请输入姓名" maxlength="50"/></view>
-    <view class="field"><text>单位</text><input data-field="organization" disabled="{{loading || loadFailed || saving}}" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构" maxlength="100"/></view>
-    <view class="field"><text>职务</text><input data-field="position" disabled="{{loading || loadFailed || saving}}" value="{{form.position}}" bindinput="input" placeholder="教授、产品经理等" maxlength="50"/></view>
-    <view class="field"><text>国家</text><input data-field="country" disabled="{{loading || loadFailed || saving}}" value="{{form.country}}" bindinput="input" placeholder="工作国家或地区" maxlength="50"/></view>
-    <view class="field"><text>省份</text><input data-field="province" disabled="{{loading || loadFailed || saving}}" value="{{form.province}}" bindinput="input" placeholder="所在省份" maxlength="50"/></view>
-    <view class="field"><text>城市</text><input data-field="city" disabled="{{loading || loadFailed || saving}}" value="{{form.city}}" bindinput="input" placeholder="工作城市" maxlength="50"/></view>
-    <view class="field"><text>详细位置</text><view class="location-field"><input data-field="address" disabled="{{loading || loadFailed || saving}}" value="{{form.address}}" bindinput="input" placeholder="街道、门牌等" maxlength="120"/><text class="location-pick" bindtap="chooseLocation">地图选点</text></view></view>
-    <view class="field"><text>电话</text><input data-field="phone" disabled="{{loading || loadFailed || saving}}" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30"/></view>
-    <view class="field"><text>邮箱</text><input data-field="email" disabled="{{loading || loadFailed || saving}}" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100"/></view>
+  <view class="card batch-entry" wx:if="{{entryMode === 'batch'}}"><view class="batch-symbol">＋＋</view><view class="ui-panel-title">一次录入多位联系人</view><view class="app-help">按行粘贴姓名、单位、职务等信息，核对并勾选后再统一保存。</view><button class="ui-primary" bindtap="openBatch">打开批量录入</button></view>
+  <block wx:if="{{entryMode !== 'batch'}}">
+    <view id="contact-form" class="editor-section-heading"><view class="ui-panel-title">{{entryMode === 'manual' ? '联系人资料' : '核对并补充资料'}}</view><text>仅姓名必填</text></view>
+    <view class="card form-section"><view class="form-section-title">基本信息</view>
+      <view class="field form-row"><text>姓名 *</text><input data-field="name" disabled="{{loading || loadFailed || saving}}" value="{{form.name}}" bindinput="input" placeholder="怎么称呼这位联系人" maxlength="50" /></view>
+      <view class="field form-row"><text>单位</text><input data-field="organization" disabled="{{loading || loadFailed || saving}}" value="{{form.organization}}" bindinput="input" placeholder="学校、公司或机构" maxlength="100" /></view>
+      <view class="field form-row"><text>职务</text><input data-field="position" disabled="{{loading || loadFailed || saving}}" value="{{form.position}}" bindinput="input" placeholder="职位或专业方向" maxlength="50" /></view>
+    </view>
+    <view class="card form-section"><view class="form-section-title">所在地</view>
+      <view class="field form-row"><text>国家 / 地区</text><button class="region-select" bindtap="openCountryPicker" disabled="{{loading || loadFailed || saving || extracting || importing || regionChanging}}">{{form.country || '未设置，点击选择'}} <text>›</text></button></view>
+      <view class="app-help" wx:if="{{countryUnrecognized}}">原国家名称“{{form.country}}”暂未识别，已保留。可重新选择以统一地图归类。</view>
+      <block wx:if="{{domesticRegion && !manualRegion}}">
+        <view class="field form-row"><text>省份 / 地区</text><picker class="region-native-picker" range="{{provinceOptions}}" value="{{provinceIndex}}" bindchange="changeProvince" disabled="{{loading || loadFailed || saving || extracting || importing || regionChanging}}"><view>{{form.province || '未设置，点击选择'}} <text>⌄</text></view></picker></view>
+        <view class="field form-row"><text>城市</text><picker wx:if="{{cityOptions.length > 1}}" class="region-native-picker" range="{{cityOptions}}" value="{{cityIndex}}" bindchange="changeCity" disabled="{{loading || loadFailed || saving || extracting || importing || regionChanging}}"><view>{{form.city || '未设置，点击选择'}} <text>⌄</text></view></picker><input wx:else data-field="city" disabled="{{loading || loadFailed || saving || regionChanging}}" value="{{form.city}}" bindinput="input" placeholder="选填，或先选择省份" maxlength="50" /></view>
+      </block>
+      <block wx:else>
+        <view class="field form-row"><text>省份 / 州</text><input data-field="province" disabled="{{loading || loadFailed || saving || regionChanging}}" value="{{form.province}}" bindinput="input" placeholder="选填，可留空" maxlength="50" /></view>
+        <view class="field form-row"><text>城市</text><input data-field="city" disabled="{{loading || loadFailed || saving || regionChanging}}" value="{{form.city}}" bindinput="input" placeholder="选填，保留当地名称" maxlength="50" /></view>
+      </block>
+      <button wx:if="{{domesticRegion}}" class="ui-link region-manual-toggle" bindtap="toggleManualRegion">{{manualRegion ? '使用省市选择' : '没有对应地区？手动填写'}}</button>
+      <view class="app-help">国家和省市均可暂不填写。选择在本机完成；更换地区时，请重新核对详细位置。</view>
+      <view class="field form-row"><text>详细位置</text><view class="location-field"><input data-field="address" disabled="{{loading || loadFailed || saving}}" value="{{form.address}}" bindinput="input" placeholder="街道、楼宇等" maxlength="120"/><button class="location-pick" bindtap="chooseLocation" disabled="{{loading || loadFailed || saving}}">选点</button></view></view>
+    </view>
+    <view class="card form-section"><view class="form-section-title">联系方式</view>
+      <view class="field form-row"><text>电话</text><input data-field="phone" disabled="{{loading || loadFailed || saving}}" value="{{form.phone}}" bindinput="input" placeholder="选填" maxlength="30" /></view>
+      <view class="field form-row"><text>邮箱</text><input data-field="email" disabled="{{loading || loadFailed || saving}}" value="{{form.email}}" bindinput="input" placeholder="选填" maxlength="100" /></view>
+    </view>
+    <view class="card form-section"><view class="form-section-title">分类与标签</view>
     <view class="tag-field-label">归入分类<text class="field-hint">可多选，再点一次取消</text></view>
     <view class="app-help">分类用于「图谱 → 标签树」的分支，可分多层。在联系人页点「管理分类」统一管理；请先保存当前表单。</view>
     <view class="suggested-tags" wx:if="{{categoryOptions.length}}"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{categoryOptions}}" wx:key="id" data-id="{{item.id}}" bindtap="toggleCategory" aria-label="{{item.selected ? '取消归入' : '归入'}}{{item.label}}">{{item.label}}</view></view>
@@ -44,8 +66,22 @@
     <view class="app-help">标签用于联系人页筛选，可多选。自定义标签在联系人页添加，标签与分类不会自动互相转换。</view>
     <view class="selected-tags" wx:if="{{selectedTags.length}}"><button class="selected-tag" wx:for="{{selectedTags}}" wx:key="*this" data-tag="{{item}}" bindtap="removeTag" aria-label="移除{{item}}标签">{{item}} <text>×</text></button></view>
     <view class="suggested-tags"><view class="suggested-tag {{item.selected ? 'selected' : ''}}" wx:for="{{suggestedTags}}" wx:key="name" data-tag="{{item.name}}" bindtap="toggleSuggestedTag">{{item.name}}</view></view>
-    <view class="field area"><text>备注</text><textarea data-field="note" disabled="{{loading || loadFailed || saving}}" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向等" maxlength="500"/></view>
+    </view>
+    <view class="card form-section"><view class="form-section-title">备注</view><textarea class="note-input" data-field="note" disabled="{{loading || loadFailed || saving}}" value="{{form.note}}" bindinput="input" placeholder="认识场景、合作方向，或下次联系时想提起的话题" maxlength="500" /></view>
+    <view class="ui-footer"><button class="ui-primary" bindtap="save" loading="{{saving || loading}}" disabled="{{saving || loading || loadFailed || extracting || importing || regionChanging}}">{{saving ? '正在保存…' : (id ? '保存修改' : '保存联系人')}}</button></view>
+  </block>
+  <view class="country-overlay" wx:if="{{countryPickerOpen}}">
+    <view class="country-backdrop" bindtap="closeCountryPicker"></view>
+    <view class="country-sheet">
+      <view class="country-sheet-heading"><view class="ui-panel-title">选择国家 / 地区</view><button class="ui-link" bindtap="closeCountryPicker" disabled="{{regionChanging}}">关闭</button></view>
+      <input class="country-search" value="{{countryKeyword}}" bindinput="countrySearch" placeholder="搜索中文名、英文名或简称" maxlength="80" focus="{{countryPickerOpen}}" />
+      <button class="country-unset" data-code="" bindtap="selectCountry" disabled="{{regionChanging}}">暂不设置国家 / 地区</button>
+      <view class="country-recents" wx:if="{{recentCountries.length && !countryKeyword}}"><text>最近使用</text><view><button wx:for="{{recentCountries}}" wx:key="code" data-code="{{item.code}}" bindtap="selectCountry" disabled="{{regionChanging}}">{{item.name}}</button></view></view>
+      <scroll-view class="country-options" scroll-y="{{true}}">
+        <button class="country-option" wx:for="{{countryOptions}}" wx:key="code" data-code="{{item.code}}" bindtap="selectCountry" disabled="{{regionChanging}}"><view>{{item.name}}<text>{{item.english}}</text></view><text>{{item.code}}</text></button>
+        <view class="app-state" wx:if="{{!countryOptions.length}}">没有匹配项，可换用中文名、英文名或代码；原资料会保留。</view>
+      </scroll-view>
+    </view>
   </view>
-  <button class="primary-button save" bindtap="save" loading="{{saving || loading}}" disabled="{{saving || loading || loadFailed}}">{{saving ? '保存中...' : '确认保存'}}</button>
   <privacy-popup />
 </view>

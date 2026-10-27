@@ -3,14 +3,59 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const api_1 = require("../../utils/api");
 const contact_tags_1 = require("../../utils/contact-tags");
 const LETTERS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
-const directoryGroups = (contacts) => {
+const SECTION_SIZE = 40;
+const BATCH_SECTIONS = 5;
+const cut = (value, limit) => { const text = typeof value === "string" ? value : ""; return text.length > limit ? `${text.slice(0, limit)}…` : text; };
+const toRow = (contact) => {
+    const tags = Array.isArray(contact.tags) ? contact.tags : [];
+    return { id: contact.id, name: cut(contact.name, 30), initial: contact.name ? contact.name.charAt(0) : "?", organization: cut(contact.organization, 40),
+        position: cut(contact.position, 30), city: cut(contact.city, 20), tags: tags.slice(0, 2).map(tag => cut(tag, 12)), moreTags: Math.max(0, tags.length - 2) };
+};
+// Letter groups split into fixed-size sections so the list can be rendered a few sections at a time.
+const directorySections = (contacts) => {
     const groups = new Map();
     contacts.forEach(contact => { const letter = LETTERS.includes(contact.initial) ? contact.initial : "#"; if (!groups.has(letter))
-        groups.set(letter, []); groups.get(letter)?.push({ ...contact, initial: contact.name ? contact.name.charAt(0) : "?" }); });
-    return LETTERS.filter(letter => groups.has(letter)).map(letter => ({ letter, contacts: groups.get(letter) || [] }));
+        groups.set(letter, []); groups.get(letter)?.push(toRow(contact)); });
+    const sections = [];
+    LETTERS.filter(letter => groups.has(letter)).forEach(letter => {
+        const rows = groups.get(letter) || [];
+        for (let start = 0; start < rows.length; start += SECTION_SIZE)
+            sections.push({ key: `${letter}-${start}`, letter, first: start === 0, last: start + SECTION_SIZE >= rows.length, contacts: rows.slice(start, start + SECTION_SIZE) });
+    });
+    return sections;
 };
 Page({
     requestId: 0,
+    tagRequestId: 0,
+    active: true,
+    unloaded: false,
+    viewOwnerId: "",
+    searchVersion: 0,
+    searchTimer: null,
+    cancelSearch() {
+        this.searchVersion++;
+        if (this.searchTimer !== null)
+            clearTimeout(this.searchTimer);
+        this.searchTimer = null;
+    },
+    clearDirectory() {
+        this.contactList = [];
+        this.allSections = [];
+        this.renderedSections = 0;
+        this.setData({ total: 0, sections: [], letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "" });
+    },
+    changeOwner(owner) {
+        this.cancelSearch();
+        this.requestId++;
+        this.tagRequestId++;
+        this.viewOwnerId = owner;
+        this.clearDirectory();
+        this.setData({ keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, loading: false, searchPending: false, loadError: "" });
+    },
+    // Full result of the last load (page instance only, never sent to the view).
+    contactList: [],
+    allSections: [],
+    renderedSections: 0,
     manageCategories() {
         wx.setStorageSync("graph-category-entry", {
             ownerId: wx.getStorageSync("ai-network-owner-id"), expiresAt: Date.now() + 30000,
@@ -20,8 +65,14 @@ Page({
                 (0, api_1.showError)(new Error("分类管理打开失败，请重试"));
             } });
     },
-    data: { loading: false, loadError: "", keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", contacts: [], groups: [], tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
+    data: { loading: false, searchPending: false, loadError: "", keyword: "", city: "", country: "", province: "", regionFilter: false, filterLabel: "", selectedTag: "", total: 0, sections: [], tags: (0, contact_tags_1.filterTags)([]), creatingTag: false, letters: LETTERS.map(letter => ({ letter, available: false })), scrollIntoView: "", activeLetter: "", activeQuery: "" },
     onShow() {
+        this.active = true;
+        const owner = wx.getStorageSync("ai-network-owner-id") || "";
+        if (this.viewOwnerId && this.viewOwnerId !== owner)
+            this.changeOwner(owner);
+        else
+            this.viewOwnerId = owner;
         const region = wx.getStorageSync("contact-filter-region");
         const city = wx.getStorageSync("contact-filter-city");
         wx.removeStorageSync("contact-filter-region");
@@ -31,17 +82,39 @@ Page({
         else if (city)
             this.setData({ country: "", province: "", city, regionFilter: false, filterLabel: `城市：${city}` });
         this.loadTags();
-        this.loadContacts();
+        return this.loadContacts();
     },
-    async loadTags() { try {
-        this.setData({ tags: (0, contact_tags_1.filterTags)(await (0, api_1.request)("/tags")) });
-    }
-    catch (error) {
-        (0, api_1.showError)(error);
-    } },
+    onHide() {
+        this.active = false;
+        this.cancelSearch();
+        this.requestId++;
+        this.tagRequestId++;
+        this.setData({ searchPending: false, loading: false });
+    },
+    onUnload() { this.onHide(); this.unloaded = true; },
+    async loadTags() {
+        const id = ++this.tagRequestId, owner = wx.getStorageSync("ai-network-owner-id") || "";
+        try {
+            const tags = (0, contact_tags_1.filterTags)(await (0, api_1.request)("/tags"));
+            if (id === this.tagRequestId && this.active && !this.unloaded && owner === wx.getStorageSync("ai-network-owner-id"))
+                this.setData({ tags });
+        }
+        catch (error) {
+            if (id === this.tagRequestId && this.active && !this.unloaded && owner === wx.getStorageSync("ai-network-owner-id"))
+                (0, api_1.showError)(error);
+        }
+    },
     async loadContacts() {
+        if (!this.active || this.unloaded)
+            return;
+        this.cancelSearch();
+        const owner = wx.getStorageSync("ai-network-owner-id") || "";
+        if (this.viewOwnerId && this.viewOwnerId !== owner)
+            this.changeOwner(owner);
+        else
+            this.viewOwnerId = owner;
         const current = ++this.requestId;
-        this.setData({ loading: true, loadError: "" });
+        this.setData({ loading: true, searchPending: false, loadError: "" });
         try {
             const params = [`keyword=${encodeURIComponent(this.data.keyword)}`];
             if (this.data.regionFilter)
@@ -53,52 +126,132 @@ Page({
             const query = params.join("&");
             this.data.activeQuery = query;
             const contacts = await (0, api_1.request)(`/contacts/directory?${query}`);
-            if (current !== this.requestId)
+            if (current !== this.requestId || !this.active || this.unloaded)
                 return;
-            const groups = directoryGroups(contacts);
-            const available = new Set(groups.map(group => group.letter));
-            this.setData({ contacts, groups, letters: LETTERS.map(letter => ({ letter, available: available.has(letter) })), scrollIntoView: "" });
+            if (owner !== wx.getStorageSync("ai-network-owner-id"))
+                throw new Error("账号已切换，请重新加载联系人");
+            this.contactList = contacts;
+            this.allSections = directorySections(contacts);
+            this.renderedSections = Math.min(BATCH_SECTIONS, this.allSections.length);
+            const available = new Set(this.allSections.map((section) => section.letter));
+            this.setData({ total: contacts.length, sections: this.allSections.slice(0, this.renderedSections), letters: LETTERS.map(letter => ({ letter, available: available.has(letter) })), scrollIntoView: "" });
         }
         catch (error) {
-            if (current === this.requestId) {
-                this.setData({ loadError: "联系人加载失败，请重新加载" });
+            if (current === this.requestId && this.active && !this.unloaded) {
+                this.clearDirectory();
+                this.setData({ loadError: owner !== wx.getStorageSync("ai-network-owner-id") ? "账号已切换，请重新加载联系人" : "联系人加载失败，请重新加载" });
                 (0, api_1.showError)(error);
             }
         }
         finally {
-            if (current === this.requestId)
+            if (current === this.requestId && this.active && !this.unloaded)
                 this.setData({ loading: false });
         }
     },
-    onKeyword(event) { this.setData({ keyword: event.detail.value }); },
-    search() { this.loadContacts(); },
+    // Appends the next sections by path, so earlier rows are not sent to the view again.
+    renderMore(untilIndex = -1) {
+        if (this.data.searchPending || this.data.loading || !this.active || this.unloaded)
+            return;
+        while (this.renderedSections < this.allSections.length) {
+            const end = Math.min(this.allSections.length, this.renderedSections + BATCH_SECTIONS);
+            const updates = {};
+            for (let index = this.renderedSections; index < end; index++)
+                updates[`sections[${index}]`] = this.allSections[index];
+            this.renderedSections = end;
+            this.setData(updates);
+            if (untilIndex < end)
+                break;
+        }
+    },
+    onListBottom() { this.renderMore(); },
+    onKeyword(event) {
+        if (!this.active || this.unloaded)
+            return;
+        const value = String(event.detail?.value || ""), owner = wx.getStorageSync("ai-network-owner-id") || "";
+        if (this.viewOwnerId && this.viewOwnerId !== owner)
+            this.changeOwner(owner);
+        else
+            this.viewOwnerId = owner;
+        this.cancelSearch();
+        this.requestId++;
+        this.setData({ keyword: value, searchPending: true, loading: false, loadError: "" });
+        if (!value.trim())
+            return this.loadContacts();
+        const version = this.searchVersion;
+        this.searchTimer = setTimeout(() => {
+            if (version !== this.searchVersion || !this.active || this.unloaded)
+                return;
+            this.searchTimer = null;
+            if (owner !== wx.getStorageSync("ai-network-owner-id")) {
+                this.changeOwner(wx.getStorageSync("ai-network-owner-id") || "");
+                this.setData({ loadError: "账号已切换，请重新加载联系人" });
+                return;
+            }
+            this.loadContacts();
+        }, 250);
+    },
+    search() { return this.loadContacts(); },
+    clearFilters() {
+        this.setData({ keyword: "", country: "", province: "", city: "", regionFilter: false, filterLabel: "", selectedTag: "" });
+        return this.loadContacts();
+    },
     selectTag(event) { const tag = event.currentTarget.dataset.tag; this.setData({ selectedTag: tag }); this.loadContacts(); },
     createTag() {
-        if (this.data.creatingTag)
+        if (this.data.creatingTag || !this.active || this.unloaded)
             return;
+        const owner = wx.getStorageSync("ai-network-owner-id") || "";
+        if (!owner || (this.viewOwnerId && this.viewOwnerId !== owner)) {
+            this.changeOwner(owner);
+            this.setData({ loadError: "账号已切换，请重新加载联系人" });
+            return;
+        }
         wx.showModal({ title: "新增自定义标签", editable: true, placeholderText: "请输入你想要的标签内容", confirmText: "添加", success: async (result) => {
-                if (!result.confirm)
+                if (!result.confirm || !this.active || this.unloaded)
                     return;
+                if (owner !== wx.getStorageSync("ai-network-owner-id")) {
+                    this.changeOwner(wx.getStorageSync("ai-network-owner-id") || "");
+                    this.setData({ loadError: "账号已切换，原标签操作已取消，请重新加载联系人" });
+                    return (0, api_1.showError)(new Error("账号已切换，原标签操作已取消"));
+                }
                 const name = String(result.content || "").trim();
                 if (!name)
                     return (0, api_1.showError)(new Error("请输入标签名称"));
                 this.setData({ creatingTag: true });
                 try {
                     await (0, api_1.request)("/tags", "POST", { name });
+                    if (!this.active || this.unloaded)
+                        return;
+                    if (owner !== wx.getStorageSync("ai-network-owner-id")) {
+                        this.changeOwner(wx.getStorageSync("ai-network-owner-id") || "");
+                        this.setData({ loadError: "标签操作属于原账号，请重新加载联系人" });
+                        return;
+                    }
                     await this.loadTags();
                     wx.showToast({ title: "标签已添加", icon: "success" });
                 }
                 catch (error) {
-                    (0, api_1.showError)(error);
+                    if (this.active && !this.unloaded)
+                        (0, api_1.showError)(error);
                 }
                 finally {
-                    this.setData({ creatingTag: false });
+                    if (!this.unloaded)
+                        this.setData({ creatingTag: false });
                 }
             } });
     },
     clearCity() { this.setData({ country: "", province: "", city: "", regionFilter: false, filterLabel: "" }); this.loadContacts(); },
-    jumpLetter(event) { const letter = event.currentTarget.dataset.letter; if (!this.data.letters.find(item => item.letter === letter && item.available))
-        return; this.setData({ scrollIntoView: "", activeLetter: letter }); setTimeout(() => this.setData({ scrollIntoView: `letter-${letter}` }), 0); },
+    jumpLetter(event) {
+        if (this.data.searchPending || this.data.loading || !this.active || this.unloaded)
+            return;
+        const letter = event.currentTarget.dataset.letter;
+        if (!this.data.letters.find(item => item.letter === letter && item.available))
+            return;
+        const index = this.allSections.findIndex((section) => section.letter === letter && section.first);
+        if (index >= this.renderedSections)
+            this.renderMore(index);
+        this.setData({ scrollIntoView: "", activeLetter: letter });
+        setTimeout(() => this.setData({ scrollIntoView: `letter-${letter}` }), 0);
+    },
     add() { wx.navigateTo({ url: "/pages/contact-form/index" }); },
     detail(event) { wx.navigateTo({ url: `/pages/contact-detail/index?id=${event.currentTarget.dataset.id}` }); }
 });

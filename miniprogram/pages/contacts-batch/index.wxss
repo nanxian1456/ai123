@@ -8,3 +8,7 @@
 .entry-info text { font-size: 23rpx; color: #a34b3f; }
 .entry-info > text { display: block; margin-top: 6rpx; color: #66798a; }
 .save { margin-top: 24rpx; border-radius: 6rpx; }
+.batch-page .actions button { flex:1 1 0%; width:0; min-width:0; }
+.entry-info { word-wrap:break-word; }
+.entry > checkbox { flex:none; }
+.batch-page .save { width:100%; }

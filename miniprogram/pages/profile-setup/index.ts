@@ -6,6 +6,7 @@ Page({
     saving: false,
     loading: false,
     loadFailed: false,
+    dirty: false, resetAvatar: false, avatarUrl: "",
     avatars: [
       { type: "male-1", label: "男生 1" },
       { type: "male-2", label: "男生 2" },
@@ -21,9 +22,21 @@ Page({
       avatarType: "male-1",
     },
   },
+  savedForm: "",
+  updateDirty() {
+    const dirty = this.data.resetAvatar || JSON.stringify(this.data.form) !== this.savedForm;
+    this.setData({ dirty });
+    if (dirty && typeof wx.enableAlertBeforeUnload === "function") wx.enableAlertBeforeUnload({ message: "资料还未保存，离开会丢失修改。" });
+    if (!dirty && typeof wx.disableAlertBeforeUnload === "function") wx.disableAlertBeforeUnload({});
+  },
+  resetDefaultAvatar() {
+    if (this.data.loading || this.data.loadFailed || this.data.saving) return;
+    this.setData({ resetAvatar: true }); this.updateDirty();
+  },
   onLoad(query: Record<string, string>) {
     const isEdit = query.mode === "edit";
     this.setData({ isEdit });
+    this.savedForm = JSON.stringify(this.data.form);
     if (isEdit) this.load();
   },
   async load() {
@@ -32,6 +45,7 @@ Page({
     try {
       const profile = await request<any>("/me");
       this.setData({
+        avatarUrl: profile.avatarUrl || "", resetAvatar: false,
         form: {
           nickname: profile.nickname || "",
           organization: profile.organization || "",
@@ -41,6 +55,7 @@ Page({
           avatarType: profile.avatarType || "male-1",
         },
       });
+      this.savedForm = JSON.stringify(this.data.form); this.updateDirty();
     } catch (error) {
       this.setData({ loadFailed: true });
       showError(error);
@@ -53,10 +68,12 @@ Page({
     this.setData({
       [`form.${event.currentTarget.dataset.field}`]: event.detail.value,
     });
+    this.updateDirty();
   },
   selectAvatar(event: any) {
     if (this.data.loading || this.data.loadFailed || this.data.saving) return;
-    this.setData({ "form.avatarType": event.currentTarget.dataset.type });
+    this.setData({ "form.avatarType": event.currentTarget.dataset.type, resetAvatar: true });
+    this.updateDirty();
   },
   async save() {
     if (this.data.saving || this.data.loading || this.data.loadFailed) return;
@@ -66,8 +83,10 @@ Page({
     try {
       await request("/me", "PATCH", {
         ...this.data.form,
+        resetAvatar: this.data.resetAvatar,
         nickname: this.data.form.nickname.trim(),
       });
+      this.setData({ resetAvatar: false }); this.savedForm = JSON.stringify(this.data.form); this.updateDirty();
       wx.showToast({ title: "资料已保存", icon: "success" });
       setTimeout(
         () =>

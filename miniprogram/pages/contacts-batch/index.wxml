@@ -1,5 +1,4 @@
 <view class="page batch-page">
-  <settings-entry />
   <view class="section-title">批量录入</view>
   <view class="format">每行一位联系人：姓名 | 单位 | 职务 | 城市 | 电话。没有的字段留空。</view>
   <textarea value="{{source}}" bindinput="input" maxlength="12000" placeholder="张三 | 甲公司 | 产品经理 | 南京 | 13800000000&#10;李四 | 乙大学 | 教师 | 上海 |" />

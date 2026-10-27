@@ -13,3 +13,10 @@
 .consent-row.danger { color:#d92d20; }
 .chevron { color:#a4b0bc; font-size:34rpx; }
 .consent-button { margin:0; color:#d92d20; background:#fff1f0; font-size:24rpx; }
+.visibility-row,.consent-row { min-width:0; gap:20rpx; padding:16rpx 0; box-sizing:border-box; }
+.visibility-row > view,.consent-row > view { flex:1; min-width:0; word-wrap:break-word; }
+.visibility-row switch { flex:none; }
+.consent-row .chevron { flex:none; }
+.page .consent-button { flex:0 1 auto; max-width:42%; width:auto; white-space:normal; line-height:1.5; padding:16rpx; }
+.withdrawal-panel { margin-top:24rpx; }
+.withdrawal-panel button { margin-top:16rpx; }

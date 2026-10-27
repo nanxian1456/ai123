@@ -2,39 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const api_1 = require("../../utils/api");
 const consent_1 = require("../../utils/consent");
-const VISIBILITY_FIELDS = [
-    { field: "nickname", label: "昵称" },
-    { field: "organization", label: "单位" },
-    { field: "position", label: "职务" },
-    { field: "city", label: "城市" },
-    { field: "bio", label: "个人简介" },
-];
-const PRIVATE_VISIBILITY = {
-    avatar: false,
-    nickname: false,
-    organization: false,
-    position: false,
-    city: false,
-    bio: false,
-};
-const normalizeProfile = (profile) => ({
-    ...profile,
-    visibility: { ...PRIVATE_VISIBILITY, ...(profile.visibility || {}) },
-});
-const visibilityItems = (visibility) => VISIBILITY_FIELDS.map((item) => ({
-    ...item,
-    enabled: visibility[item.field],
-}));
+const account_state_1 = require("../../utils/account-state");
 Page({
     data: {
         profile: null,
-        visibilityItems: [],
-        savingVisibility: false,
-        aiConsent: false,
+        aiConsent: false, withdrawalOptions: false,
+        loading: true, loadError: "", publication: (0, account_state_1.publicationView)(null),
     },
     onShow() {
         this.setData({ aiConsent: (0, consent_1.hasAiConsent)() });
-        this.load();
+        return this.load();
     },
     openTerms() {
         wx.navigateTo({ url: "/pages/legal/index?doc=terms" });
@@ -44,7 +21,7 @@ Page({
     },
     openWechatGuide() {
         if (typeof wx.openPrivacyContract === "function")
-            wx.openPrivacyContract({});
+            wx.openPrivacyContract({ fail: () => wx.showToast({ title: "隐私指引暂时无法打开", icon: "none" }) });
         else
             wx.showToast({ title: "请更新微信后查看", icon: "none" });
     },
@@ -58,13 +35,21 @@ Page({
             success: (result) => {
                 if (!result.confirm)
                     return;
-                (0, consent_1.withdrawAiConsent)();
-                this.setData({ aiConsent: false });
-                wx.showToast({ title: "已撤回", icon: "success" });
+                try {
+                    (0, consent_1.withdrawAiConsent)();
+                    this.setData({ aiConsent: false });
+                    wx.showToast({ title: "已撤回", icon: "success" });
+                }
+                catch (error) {
+                    this.setData({ aiConsent: (0, consent_1.hasAiConsent)() });
+                    (0, api_1.showError)(error);
+                }
             },
         });
     },
-    withdrawAll() {
+    withdrawAll() { this.setData({ withdrawalOptions: true }); },
+    cancelWithdrawal() { this.setData({ withdrawalOptions: false }); },
+    confirmWithdrawAll() {
         wx.showModal({
             title: "撤回全部同意",
             content: "撤回后将退出登录，需重新同意《用户协议》和《隐私政策》才能继续使用。本机的联系人和资料不会被删除；如需删除服务器上的公开资料，请先关闭公开昵称。",
@@ -73,63 +58,31 @@ Page({
             success: (result) => {
                 if (!result.confirm)
                     return;
-                (0, consent_1.withdrawConsent)();
-                (0, api_1.clearSession)();
-                wx.reLaunch({ url: "/pages/entry/index" });
+                try {
+                    (0, consent_1.withdrawConsent)();
+                    (0, api_1.clearSession)();
+                    wx.reLaunch({ url: "/pages/entry/index" });
+                }
+                catch (error) {
+                    this.setData({ aiConsent: (0, consent_1.hasAiConsent)() });
+                    (0, api_1.showError)(error);
+                }
             },
         });
     },
     async load() {
+        this.setData({ loading: true, loadError: "" });
         try {
-            const profile = normalizeProfile(await (0, api_1.request)("/me"));
-            this.setData({
-                profile,
-                visibilityItems: visibilityItems(profile.visibility),
-            });
+            const profile = await (0, api_1.request)("/me");
+            this.setData({ profile, publication: (0, account_state_1.publicationView)(profile) });
         }
         catch (error) {
-            (0, api_1.showError)(error);
-        }
-    },
-    async retryPublication() {
-        if (this.data.savingVisibility || !this.data.profile)
-            return;
-        this.setData({ savingVisibility: true });
-        try {
-            await (0, api_1.syncPublishedProfile)(this.data.profile);
-        }
-        catch (error) {
-            (0, api_1.showError)(error);
+            this.setData({ loadError: error instanceof Error ? error.message : "隐私设置读取失败，请重试" });
         }
         finally {
-            await this.load();
-            this.setData({ savingVisibility: false });
+            this.setData({ loading: false });
         }
     },
-    changeVisibility(event) {
-        if (this.data.savingVisibility || !this.data.profile)
-            return;
-        const visibility = {
-            ...this.data.profile.visibility,
-            [event.currentTarget.dataset.field]: event.detail.value,
-        };
-        this.setData({
-            "profile.visibility": visibility,
-            visibilityItems: visibilityItems(visibility),
-            savingVisibility: true,
-        });
-        (0, api_1.request)("/me/visibility", "PATCH", visibility)
-            .then((profile) => {
-            const normalized = normalizeProfile(profile);
-            this.setData({
-                profile: normalized,
-                visibilityItems: visibilityItems(normalized.visibility),
-            });
-        })
-            .catch((error) => {
-            this.load();
-            (0, api_1.showError)(error);
-        })
-            .finally(() => this.setData({ savingVisibility: false }));
-    },
+    // Which fields are public is managed together with the import code.
+    openPublication() { wx.navigateTo({ url: "/pages/settings-friends/index" }); },
 });

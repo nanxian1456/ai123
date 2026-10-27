@@ -2,14 +2,32 @@
   <view class="card friend-card">
     <view class="friend-title">我的八位导入码</view>
     <text class="friend-description">把导入码发给朋友，对方可导入你主动公开的资料。</text>
-    <view class="import-code">{{contactCode || '加载中'}}</view>
+    <view class="import-code">{{contactCode || (codeLoading ? '正在获取…' : '暂不可用')}}</view>
+    <view class="app-help" wx:if="{{codeFromCache}}">当前显示本机缓存的导入码。</view>
+    <view class="app-state app-state--warning" wx:if="{{codeError}}">{{codeError}}<button class="app-action" bindtap="load" disabled="{{codeLoading || publishing}}">重新获取</button></view>
     <button class="copy-button" bindtap="copyCode" disabled="{{!contactCode}}">复制导入码</button>
   </view>
+    <button class="ui-link" bindtap="resetCode" loading="{{resetting}}" disabled="{{resetting || publishing || savingVisibility || codeLoading || previewLoading}}">重置导入码</button>
   <view class="card permission-note">
-    <view>公开资料</view>
-    <view wx:if="{{profile.publicationStatus === 'pending' || profile.publicationStatus === 'error'}}" role="status">公开状态尚未确认，请联网重试同步。</view>
-    <text>先在个人隐私中公开昵称，再选择其他可公开字段。联系人、关系、电话和邮箱始终只保存在本机。</text>
-    <button class="copy-button" bindtap="publish" loading="{{publishing}}" disabled="{{publishing || !profile || (!profile.visibility.nickname && profile.publicationStatus !== 'pending' && profile.publicationStatus !== 'error')}}">更新公开资料</button>
+    <view>{{profile ? publication.title : '公开资料'}}</view>
+    <view class="app-help" wx:if="{{profile}}">{{publication.detail}}</view>
+    <view class="app-help" wx:if="{{publication.lastSynced}}">最近确认：{{publication.lastSynced}}</view>
+    <view class="app-state" wx:if="{{profileLoading}}">正在读取本机资料…</view>
+    <view class="app-state app-state--error" wx:if="{{profileError}}">{{profileError}}<button class="app-action" bindtap="load">重新加载</button></view>
+    <text>先公开昵称，再选择其他可公开的字段；持有导入码的人只能获取这些文字资料。联系人、关系、电话、邮箱和头像始终只保存在本机。</text>
+    <button wx:if="{{publication.retry}}" class="copy-button" bindtap="publish" loading="{{publishing}}" disabled="{{publishing || savingVisibility || resetting || previewLoading || !profile}}">重试同步</button>
+  </view>
+  <view class="card visibility-card" wx:if="{{profile}}">
+    <view class="visibility-row" wx:for="{{visibilityItems}}" wx:key="field">
+      <view><text>{{item.label}}</text><text>{{savingVisibility || publication.retry ? '同步待确认' : (profile.visibility.nickname && profile.nickname && item.enabled && profile.publicationStatus === 'synced' ? '已公开' : (item.enabled ? '已选，未公开' : '不公开'))}}</text></view>
+      <switch checked="{{item.enabled}}" color="#1684c3" data-field="{{item.field}}" bindchange="changeVisibility" disabled="{{savingVisibility || publishing || resetting || previewLoading}}"/>
+    </view>
+  </view>
+  <view class="card public-preview">
+    <view class="section-title">对外展示预览</view><view class="app-help">联网读取服务器当前可导入的文字资料；本机未同步的修改不会出现在这里。</view>
+    <button class="copy-button" bindtap="previewPublic" loading="{{previewLoading}}" disabled="{{previewLoading || savingVisibility || publishing || resetting}}">查看实际公开资料</button>
+    <view class="app-state app-state--error" wx:if="{{previewError}}">{{previewError}}</view>
+    <block wx:if="{{preview}}"><view wx:if="{{!preview.published}}" class="app-help">服务器当前没有可导入的公开资料。</view><view wx:else class="preview-fields"><view>{{preview.nickname}}</view><view wx:if="{{preview.organization}}">单位：{{preview.organization}}</view><view wx:if="{{preview.position}}">职务：{{preview.position}}</view><view wx:if="{{preview.city}}">城市：{{preview.city}}</view><text wx:if="{{preview.bio}}">简介：{{preview.bio}}</text></view></block>
   </view>
   <privacy-popup />
 </view>

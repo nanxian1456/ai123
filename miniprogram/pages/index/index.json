@@ -1,1 +1,3 @@
-{ "navigationBarTitleText": "AI人脉地图", "usingComponents": { "settings-entry": "/components/settings-entry/index" } }
+{
+  "navigationBarTitleText": "AI人脉地图"
+}

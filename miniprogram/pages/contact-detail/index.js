@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const api_1 = require("../../utils/api");
 Page({
-    data: { contact: null, relationships: [] },
+    data: { contact: null, relationships: [], contactId: "", loading: true, loadError: "", showEmptyFields: false },
     onLoad(query) {
         if (query.id)
             this.loadContact(query.id);
@@ -12,6 +12,7 @@ Page({
             this.loadContact(String(this.data.contact.id));
     },
     async loadContact(id) {
+        this.setData({ contactId: id, loading: true, loadError: "" });
         try {
             const contact = await (0, api_1.request)(`/contacts/${id}`);
             this.setData({
@@ -23,8 +24,24 @@ Page({
             await this.loadRelationships(id);
         }
         catch (error) {
+            this.setData({ loadError: error instanceof Error ? error.message : "联系人暂时无法读取" });
             (0, api_1.showError)(error);
         }
+        finally {
+            this.setData({ loading: false });
+        }
+    },
+    retryLoad() { if (this.data.contactId)
+        return this.loadContact(this.data.contactId); },
+    toggleEmptyFields() { this.setData({ showEmptyFields: !this.data.showEmptyFields }); },
+    copyField(event) {
+        const field = event.currentTarget.dataset.field;
+        if (field !== "phone" && field !== "email")
+            return;
+        const value = String(this.data.contact?.[field] || "").trim();
+        if (!value)
+            return wx.showToast({ title: "暂无可复制内容", icon: "none" });
+        wx.setClipboardData({ data: value, fail: () => wx.showToast({ title: "复制未完成，请重试", icon: "none" }) });
     },
     async loadRelationships(id) {
         try {
@@ -52,6 +69,12 @@ Page({
         if (this.data.contact)
             wx.navigateTo({
                 url: `/pages/relationship-form/index?sourceId=${this.data.contact.id}`,
+            });
+    },
+    editRelationship(event) {
+        if (this.data.contact)
+            wx.navigateTo({
+                url: `/pages/relationship-form/index?sourceId=${this.data.contact.id}&id=${event.currentTarget.dataset.id}`,
             });
     },
     openOther(event) {

@@ -31,8 +31,8 @@ test("contact filters combine labels with search and return to all contacts", as
     Page: (value) => {
       definition = value;
     },
-    wx: {},
-    setTimeout,
+    wx: { getStorageSync: key => key === "ai-network-owner-id" ? "contacts-page-fixture" : "" },
+    setTimeout, clearTimeout,
   });
   const page = {
     ...definition,
@@ -83,8 +83,8 @@ test("custom label button creates a label at the end of the filter bar", async (
     Page: (value) => {
       definition = value;
     },
-    wx: { showModal: (options) => modals.push(options), showToast: () => {} },
-    setTimeout,
+    wx: { getStorageSync: key => key === "ai-network-owner-id" ? "contacts-page-fixture" : "", showModal: (options) => modals.push(options), showToast: () => {} },
+    setTimeout, clearTimeout,
   });
   const page = {
     ...definition,

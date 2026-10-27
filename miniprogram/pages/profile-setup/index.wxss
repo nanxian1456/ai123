@@ -2,3 +2,8 @@
 
 .save-button[disabled] { opacity: .6; }
 .save-button::after { border: 0; }
+.form-card,.avatar-option { box-sizing:border-box; min-width:0; max-width:100%; }
+.field { min-width:0; max-width:100%; box-sizing:border-box; }
+.field > text { flex:0 0 158rpx; max-width:40%; }
+.field input,.field textarea { flex:1 1 0%; width:0; min-width:0; box-sizing:border-box; }
+.profile-intro,.picker-label,.avatar-option text { word-wrap:break-word; }

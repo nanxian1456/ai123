@@ -15,11 +15,13 @@ function loadPage(name, { api = {}, mediaBase = "http://192.168.1.2:8080" } = {}
     module,
     exports: module.exports,
     require: (id) =>
+      id.endsWith("account-state") ? require("../miniprogram/utils/account-state") :
+      id.endsWith("avatar") ? require("../miniprogram/utils/avatar") :
       id.endsWith("consent")
         ? { hasConsent: () => true, recordConsent() {} }
         : id.endsWith("api-config")
         ? { getMediaUrl: (p) => (mediaBase ? mediaBase + p : "") }
-        : { showError: (error) => calls.toasts.push(error.message), hasProfileData: realApi.hasProfileData, ...api },
+        : { showError: (error) => calls.toasts.push(error.message), hasProfileData: realApi.hasProfileData, getPendingAccountDeletion: () => "", ...api },
     Page: (value) => { definition = value; },
     wx: {
       navigateTo: (options) => calls.navigations.push(options.url),

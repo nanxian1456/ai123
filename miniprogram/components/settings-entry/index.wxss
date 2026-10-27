@@ -1,1 +1,8 @@
-.settings-bar { height:76rpx; display:flex; align-items:flex-start; justify-content:flex-start; }.settings-control { min-width:104rpx; height:54rpx; margin:0; padding:0 18rpx; border:1rpx solid #cbd9e6; border-radius:8rpx; box-sizing:border-box; color:#315b82; background:#fff; font-size:24rpx; line-height:52rpx; text-align:center; }
+:host { display:block; min-width:0; }
+.settings-card { display:flex; align-items:center; gap:18rpx; box-sizing:border-box; width:100%; max-width:100%; min-width:0; height:auto; margin:0; padding:26rpx 24rpx; border:1rpx solid var(--line, #e2e8f0); border-radius:22rpx; background:#fff; text-align:left; line-height:1.5; font-weight:400; white-space:normal; }
+.settings-card::after { border:0; }
+.settings-icon { flex:none; display:flex; align-items:center; justify-content:center; width:62rpx; height:62rpx; border-radius:16rpx; background:var(--accent-soft, #eef3ff); color:var(--accent, #2860e8); font-size:25rpx; }
+.settings-copy { flex:1; min-width:0; word-wrap:break-word; overflow-wrap:break-word; }
+.settings-title { color:var(--ink, #18344a); font-size:28rpx; font-weight:600; }
+.settings-description { display:block; margin-top:7rpx; color:var(--muted, #708091); font-size:22rpx; }
+.settings-chevron { flex:none; color:#a4aeb8; font-size:33rpx; }

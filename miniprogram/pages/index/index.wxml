@@ -1,12 +1,37 @@
-<view class="page">
-  <settings-entry />
-  <view class="hero"><view class="eyebrow">PERSONAL RELATIONSHIP CRM</view><view class="hero-title">让关系，看得见</view><view class="hero-text">联系人、单位、地区与合作关系集中管理</view></view>
-  <view class="stats" wx:if="{{dashboard}}"><view class="stat"><text class="num">{{dashboard.contactCount}}</text><text>联系人</text></view><view class="stat"><text class="num">{{dashboard.cityCount}}</text><text>城市</text></view><view class="stat"><text class="num">{{dashboard.organizationCount}}</text><text>单位</text></view></view>
-  <view class="status-card" wx:if="{{loading}}">正在同步人脉数据</view><view class="status-card error" wx:if="{{loadError}}">{{loadError}}</view>
-  <view class="section-head"><view class="section-title">快速开始</view><view class="section-subtitle">让信息沉淀成关系资产</view></view>
-  <view class="featured-action" bindtap="goAi"><view class="feature-icon">AI</view><view class="feature-copy"><view class="feature-title">AI 智能整理</view><view class="feature-text">粘贴人物介绍，自动提取单位、职位和标签</view></view><view class="arrow">›</view></view>
-  <view class="actions"><view class="action primary" bindtap="goAdd"><text class="action-icon">＋</text><text>手动新增</text></view><view class="action" bindtap="goContacts"><text class="action-icon">⌕</text><text>联系人库</text></view><view class="action" bindtap="goMap"><text class="action-icon">●</text><text>地域分布</text></view></view>
-  <view class="section-title recent-title">最近联系人</view>
-  <view class="card contact-list" wx:if="{{dashboard && dashboard.recentContacts.length}}"><view class="contact-row" wx:for="{{dashboard.recentContacts}}" wx:key="id" data-id="{{item.id}}" bindtap="openContact"><view class="avatar">{{item.initial}}</view><view class="contact-main"><view class="contact-name">{{item.name}}</view><view class="muted">{{item.position}} · {{item.organization}}</view></view><view class="city">{{item.city}}</view></view></view>
-  <view class="empty-recent" wx:if="{{dashboard && !dashboard.recentContacts.length}}">先新增一位联系人，开始建立人脉地图</view>
+<view class="page ui-page home-page">
+  <view class="ui-page-heading">
+    <view class="ui-eyebrow">我的人脉空间</view>
+    <view class="ui-title">每一次连接，都有迹可循</view>
+    <view class="ui-subtitle">记录认识的人，找到下一次合作的可能。</view>
+  </view>
+  <view class="home-entry-grid">
+    <button class="home-entry home-entry--primary" bindtap="goAdd">
+      <view class="entry-symbol">＋</view><view class="entry-title">新增联系人</view><view class="entry-caption">手动记录，随时完善</view><text class="entry-arrow">↗</text>
+    </button>
+    <button class="home-entry home-entry--ai" bindtap="goAi">
+      <view class="entry-symbol entry-symbol--ai">AI</view><view class="entry-title">智能整理</view><view class="entry-caption">粘贴介绍，提取资料</view><text class="entry-arrow">↗</text>
+    </button>
+  </view>
+  <view class="home-overview" wx:if="{{dashboard}}">
+    <view class="metric"><text class="metric-value">{{dashboard.contactCount}}</text><text class="metric-label">联系人</text></view>
+    <view class="metric"><text class="metric-value">{{dashboard.organizationCount}}</text><text class="metric-label">单位</text></view>
+    <view class="metric"><text class="metric-value">{{dashboard.cityCount}}</text><text class="metric-label">城市</text></view>
+  </view>
+  <view class="app-state" wx:if="{{loading}}" role="status">正在读取本机资料…</view>
+  <view class="app-state app-state--error" wx:if="{{loadError}}">{{loadError}}<button class="app-action" bindtap="loadDashboard">重新加载</button></view>
+  <view class="home-tools">
+    <button bindtap="goContacts"><text class="tool-dot">人</text><text>联系人库</text><text class="tool-chevron">›</text></button>
+    <button bindtap="goGraph"><text class="tool-dot">谱</text><text>关系图谱</text><text class="tool-chevron">›</text></button>
+    <button bindtap="goMap"><text class="tool-dot">图</text><text>地域分布</text><text class="tool-chevron">›</text></button>
+  </view>
+  <view class="home-section-heading"><view class="ui-panel-title">最近联系人</view><button class="ui-link" bindtap="goContacts">查看全部 ›</button></view>
+  <view class="recent-panel" wx:if="{{dashboard && dashboard.recentContacts.length}}">
+    <button class="recent-person" wx:for="{{dashboard.recentContacts}}" wx:key="id" data-id="{{item.id}}" bindtap="openContact">
+      <view class="person-avatar">{{item.initial}}</view>
+      <view class="person-content"><view class="person-name">{{item.name}}</view><view class="person-meta">{{item.organization || item.position || '资料待补充'}}<text wx:if="{{item.organization && item.position}}"> · {{item.position}}</text></view></view>
+      <text class="person-city">{{item.city}}</text><text class="person-chevron">›</text>
+    </button>
+  </view>
+  <view class="home-empty" wx:elif="{{dashboard && !loading && !loadError}}"><view class="empty-symbol">＋</view><view>从一位联系人开始</view><text>把姓名记下来，其他资料可以稍后补充。</text><button class="ui-secondary" bindtap="goAdd">记录第一位联系人</button></view>
+  <button class="home-local-note {{backupWarn ? 'home-local-note--warn' : ''}}" bindtap="goBackup"><text class="local-note-dot"></text><text>{{backupNote}}</text><text>›</text></button>
 </view>

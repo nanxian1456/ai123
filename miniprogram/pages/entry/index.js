@@ -7,6 +7,10 @@ Page({
     enterHome() {
         if (this.data.checking)
             return;
+        if ((0, api_1.getPendingAccountDeletion)()) {
+            wx.reLaunch({ url: "/pages/settings-security/index" });
+            return;
+        }
         // Existing users who have not agreed to the current terms confirm them on the login page.
         // After agreement, the login page reuses local identity without requiring a network login.
         if (!(0, consent_1.hasConsent)()) {

@@ -1,1 +1,6 @@
-{"navigationBarTitleText": "批量录入联系人", "usingComponents": {"settings-entry": "/components/settings-entry/index", "privacy-popup": "/components/privacy-popup/index"}}
+{
+  "navigationBarTitleText": "批量录入联系人",
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/index"
+  }
+}

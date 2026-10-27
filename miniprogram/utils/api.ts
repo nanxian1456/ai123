@@ -1,5 +1,7 @@
 import local = require("./local-data");
 import { getApiBaseUrl } from "./api-config";
+import { forgetBackupHistory } from "./account-state";
+import { forgetAccountConsent } from "./consent";
 const TOKEN_KEY = "ai-network-auth-token";
 const OWNER_KEY = "ai-network-owner-id";
 const EXPIRY_KEY = "ai-network-token-expires-at";
@@ -32,6 +34,7 @@ function requireLocalData(ownerId: string) {
   return data;
 }
 async function localOwner(): Promise<string> {
+  if (getPendingAccountDeletion()) throw new Error("账号注销后本机清理尚未完成，请先进入账号安全页继续清理");
   const ownerId = cachedOwner();
   return ownerId || ensureSession().then(() => getOwnerId());
 }
@@ -61,6 +64,7 @@ function publicationStatus(
   const current = local.read(ownerId);
   if (current) {
     current.profile.publicationStatus = status;
+    if (status === "synced") current.profile.publicationSyncedAt = Date.now();
     local.write(ownerId, current);
   }
 }
@@ -74,17 +78,124 @@ function getOwnerId(): string {
 export function getCurrentOwnerId() {
   return localOwner();
 }
+const deletionKey = (owner: string) => `ai-network-deletion-confirmed:${owner}`;
+export function getPendingAccountDeletion(): string {
+  const owner = getOwnerId();
+  if (!owner) return "";
+  const marker = wx.getStorageSync(deletionKey(owner));
+  return marker?.ownerId === owner && (marker.confirmed === true || marker.requested === true) ? owner : "";
+}
+async function deleteLocalAvatar(path: string): Promise<void> {
+  if (!path || /^https?:\/\//i.test(path)) return;
+  await new Promise<void>((resolve, reject) => {
+    const fs = wx.getFileSystemManager();
+    const userData = wx.env?.USER_DATA_PATH || "";
+    const options = { filePath: path, success: () => resolve(), fail: (error: any) => {
+      if (/no such file|not exist/i.test(error?.errMsg || "")) resolve();
+      else reject(new Error("服务器账号已注销，头像文件清理未完成，请继续清理本机数据"));
+    } };
+    if (userData && path.startsWith(`${userData}/`)) fs.unlink(options);
+    else fs.removeSavedFile(options);
+  });
+}
+export async function deleteAccount(ownerId: string): Promise<void> {
+  if (!ownerId || ownerId !== getOwnerId()) throw new Error("账号已切换，请重新进入账号安全页");
+  let journal = wx.getStorageSync(deletionKey(ownerId));
+  const existing = journal?.ownerId === ownerId && (journal.confirmed || journal.requested);
+  if (!existing) {
+    const operationId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const n = Math.floor(Math.random() * 16); return (c === "x" ? n : (n & 3) | 8).toString(16);
+    });
+    journal = { ownerId, operationId, requested: true, confirmed: false };
+    // Reserve the recovery journal before a destructive server request.
+    wx.setStorageSync(deletionKey(ownerId), journal);
+    if (wx.getStorageSync(deletionKey(ownerId))?.operationId !== operationId) throw new Error("注销恢复记录无法保存，请先释放存储空间");
+  }
+  if (!journal.confirmed) {
+    if (existing) {
+      const status = await backendRequest("/auth/account-deletion-status", "POST", { code: await wechatLogin(), operationId: journal.operationId });
+      if (status?.ownerId !== ownerId || getOwnerId() !== ownerId) throw new Error("微信身份已变化，请回原账号确认注销结果");
+      journal.confirmed = status.confirmed === true;
+    }
+    if (!journal.confirmed) {
+      let submitted = false;
+      try {
+        const token = await ensureSession(true, true);
+        if (getOwnerId() !== ownerId) throw new Error("微信身份已变化，本机资料已保留");
+        const code = await wechatLogin();
+        submitted = true;
+        const result = await backendRequest("/me/account", "DELETE", { code, confirmation: "注销", operationId: journal.operationId }, token);
+        if (result?.status !== "deleted" || result?.ownerId !== ownerId || getOwnerId() !== ownerId) throw new Error("注销结果无法确认，本机资料已保留，请重试");
+        journal.confirmed = true;
+      } catch (error) {
+        // A new attempt that never reached deletion cannot have changed the server account.
+        if (!submitted && !existing) { try { wx.removeStorageSync(deletionKey(ownerId)); } catch (_) { } }
+        throw error;
+      }
+    }
+    try { wx.setStorageSync(deletionKey(ownerId), journal); }
+    catch (_) { throw new Error("服务器已确认注销，但本机确认记录未保存；请释放空间后继续确认并清理"); }
+  }
+  const data = local.read(ownerId);
+  await deleteLocalAvatar(data?.profile?.avatarUrl || "");
+  if (getOwnerId() !== ownerId) throw new Error("账号已切换，请返回原账号继续清理");
+  local.write(ownerId, null);
+  // Only keys in this owner's exact namespace are eligible for cleanup.
+  const keys = wx.getStorageInfoSync().keys;
+  const shardPrefix = `ai-network-local-shards-v1:${encodeURIComponent(ownerId)}:shard:`;
+  const legacyPrefix = `${local.key(ownerId)}:g`;
+  for (const key of keys) {
+    if (key.startsWith(shardPrefix) || (key.startsWith(legacyPrefix) && /^\d+:/.test(key.slice(legacyPrefix.length)))) wx.removeStorageSync(key);
+  }
+  forgetBackupHistory(ownerId);
+  wx.removeStorageSync(`ai-network-recent-countries:${ownerId}`);
+  wx.removeStorageSync("contact-filter-region"); wx.removeStorageSync("contact-filter-city");
+  const categoryEntry = wx.getStorageSync("graph-category-entry");
+  if (categoryEntry?.ownerId === ownerId) wx.removeStorageSync("graph-category-entry");
+  forgetAccountConsent(ownerId);
+  wx.removeStorageSync(deletionKey(ownerId));
+  clearSession();
+}
+async function freshIdentityAction(path: string, confirmation: string) {
+  const ownerId = await localOwner();
+  const token = await ensureSession(true);
+  if (ownerId !== getOwnerId()) throw new Error("账号已切换，请重新操作");
+  const result = await backendRequest(path, "POST", { code: await wechatLogin(), confirmation }, token);
+  if (ownerId !== getOwnerId()) throw new Error("账号已切换，请返回原账号确认结果");
+  return { ownerId, result };
+}
+export async function revokeAllSessions(): Promise<void> {
+  const { ownerId, result } = await freshIdentityAction("/me/sessions/revoke", "退出全部");
+  if (result?.status !== "revoked" || result?.ownerId !== ownerId) throw new Error("退出结果尚未确认，请重试");
+  clearSession();
+}
+export async function resetImportCode(): Promise<string> {
+  const { ownerId, result } = await freshIdentityAction("/me/import-code/reset", "重置");
+  const code = result?.contactCode;
+  if (!/^\d{3}[A-Z]{2}\d{3}$/.test(code || "")) throw new Error("重置结果无法确认，请重新获取导入码");
+  try { const current = requireLocalData(ownerId); current.profile.contactCode = code; local.write(ownerId, current); }
+  catch (_) { throw new Error("导入码已重置，但本机缓存未更新，请重新获取"); }
+  return code;
+}
 export function clearSession() {
   wx.removeStorageSync(TOKEN_KEY);
-  wx.removeStorageSync(OWNER_KEY);
+  if (!getPendingAccountDeletion()) wx.removeStorageSync(OWNER_KEY);
   wx.removeStorageSync(EXPIRY_KEY);
 }
 function wechatLogin(): Promise<string> {
   return new Promise<string>((resolve, reject) =>
     wx.login({
-      success: ({ code }) =>
-        code ? resolve(code) : reject(new Error("未获取到微信登录凭证")),
-      fail: () => reject(new Error("微信登录失败")),
+      success: (result) => {
+        if (result.code) return resolve(result.code);
+        const error: RequestError = new Error(`微信未返回登录凭证（${result.errMsg || "无错误详情"}）`);
+        error.code = "WECHAT_LOGIN_FAILED";
+        reject(error);
+      },
+      fail: (result) => {
+        const error: RequestError = new Error(`微信登录调用失败（${result.errMsg || "无错误详情"}）`);
+        error.code = "WECHAT_LOGIN_FAILED";
+        reject(error);
+      },
     }),
   );
 }
@@ -204,7 +315,8 @@ function prepareLocal(token: string, expectedOwner: string): Promise<string> {
       });
   return migrationPromise;
 }
-export async function ensureSession(force = false): Promise<string> {
+export async function ensureSession(force = false, deletionRecovery = false): Promise<string> {
+  if (getPendingAccountDeletion() && !deletionRecovery) throw new Error("注销确认或本机清理尚未完成，请返回账号安全页继续处理");
   const token = getStoredToken();
   if (
     !force &&
@@ -247,6 +359,7 @@ export function hasProfileData(profile: any): boolean {
   ].some((value) => typeof value === "string" && value.trim().length > 0);
 }
 export async function validateSession<T = any>(): Promise<T> {
+  if (getPendingAccountDeletion()) throw new Error("账号注销后本机清理尚未完成，请返回入口继续清理");
   const ownerId = cachedOwner();
   if (ownerId) return Promise.resolve(local.handle(ownerId, "/me"));
   const token = getStoredToken();
@@ -265,6 +378,15 @@ export function request<T = any>(
   method = "GET",
   data?: any,
 ): Promise<T> {
+  if (path === "/me/published-profile" && method === "GET") {
+    const owner = getOwnerId();
+    return ensureSession().then(async token => {
+      if (owner !== getOwnerId()) throw new Error("账号已切换，请重新预览");
+      const result = await backendRequest<T>(path, "GET", undefined, token);
+      if (owner !== getOwnerId()) throw new Error("账号已切换，请重新预览");
+      return result;
+    });
+  }
   if (path === "/ai/extract")
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
@@ -274,16 +396,24 @@ export function request<T = any>(
       backendRequest(path, method, data, token),
     );
   if (path === "/me/import-code")
-    return ensureSession().then((token) =>
-      backendRequest("/me", "GET", undefined, token).then(
-        (profile) => profile.contactCode,
-      ),
-    );
+    return ensureSession().then(async token => {
+      const ownerId = getOwnerId();
+      const profile = await backendRequest("/me", "GET", undefined, token);
+      if (getOwnerId() !== ownerId) throw new Error("账号已切换，请重新获取导入码");
+      const code = profile.contactCode;
+      if (!/^\d{3}[A-Z]{2}\d{3}$/.test(code || "")) throw new Error("服务未返回有效导入码");
+      const current = requireLocalData(ownerId);
+      if (current.profile.contactCode !== code) { current.profile.contactCode = code; local.write(ownerId, current); }
+      return code;
+    });
   if (path.startsWith("/users/importable/"))
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
     );
+  let replacedAvatar = "";
   return localOwner().then((ownerId) => {
+    if (ownerId !== getOwnerId()) throw new Error("账号已切换，原操作已取消，请重新操作");
+    if (path === "/me" && method === "PATCH" && data?.resetAvatar === true) replacedAvatar = requireLocalData(ownerId).profile.avatarUrl || "";
     if (method !== "PATCH" || (path !== "/me" && path !== "/me/visibility"))
       return local.handle(ownerId, path, method, data);
     return serializePublication(ownerId, async () => {
@@ -341,6 +471,9 @@ export function request<T = any>(
         throw error;
       }
     });
+  }).then(result => {
+    if (replacedAvatar && result && !result.avatarUrl) removeLocalFile(replacedAvatar);
+    return result;
   });
 }
 function confirmPublication(ownerId: string, attempted: any) {
@@ -378,6 +511,7 @@ function publishedPayload(profile: any) {
   };
 }
 export function syncPublishedProfile(profile: any): Promise<void> {
+  if (getPendingAccountDeletion()) return Promise.reject(new Error("注销确认或本机清理尚未完成，请先完成清理"));
   const ownerId = profile && profile.ownerId;
   if (!ownerId || ownerId !== getOwnerId())
     return Promise.reject(new Error("公开资料账号不一致"));
@@ -402,15 +536,17 @@ export function syncPublishedProfile(profile: any): Promise<void> {
     }
   });
 }
-export function uploadAvatar<T = any>(filePath: string): Promise<T> {
+export function uploadAvatar<T = any>(filePath: string, expectedOwnerId?: string): Promise<T> {
   return localOwner().then(
     (ownerId) =>
-      new Promise<T>((resolve, reject) =>
+      new Promise<T>((resolve, reject) => {
+        if (expectedOwnerId && expectedOwnerId !== ownerId) return reject(new Error("账号已切换，请重新选择头像"));
         wx.getFileSystemManager().saveFile({
           tempFilePath: filePath,
           success(saved) {
             let previous = "";
             try {
+              if (getOwnerId() !== ownerId) throw new Error("账号已切换，头像未保存");
               const data = requireLocalData(ownerId);
               previous = data.profile.avatarUrl || "";
               data.profile = {
@@ -428,8 +564,8 @@ export function uploadAvatar<T = any>(filePath: string): Promise<T> {
             resolve(requireLocalData(ownerId).profile as T);
           },
           fail: () => reject(new Error("头像无法保存到手机，请检查存储空间")),
-        }),
-      ),
+        });
+      }),
   );
 }
 // Removes an avatar file this app saved earlier: wx.saveFile results, or files written under

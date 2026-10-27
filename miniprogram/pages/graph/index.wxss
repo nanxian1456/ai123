@@ -1,87 +1,11 @@
-/* 压缩包原版设计规范限定于图谱页，避免影响其他页面。 */
+/* 图谱页布局。颜色变量、标题、按钮、空状态等通用样式由 app.wxss 提供，这里不再重复。 */
 .graph-page {
-  --bg: #f6f7f9;
-  --card: #ffffff;
-  --line: #e6e8ec;
-  --line-soft: #eef1f4;
-  --text: #1c1f23;
-  --muted: #6b7280;
-  --ink: #1f3a57;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-soft: #eff4ff;
-  --radius: 16rpx;
-  --radius-sm: 12rpx;
-  --shadow: 0 8rpx 28rpx rgba(20, 30, 60, .06);
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
   box-sizing: border-box;
 }
-
-/* 原版全局样式中被图谱使用的规则。 */
-.graph-page .section-title {
-  font-size: 34rpx;
-  font-weight: 700;
-  color: var(--ink);
-  margin: 34rpx 0 18rpx;
-  padding-left: 18rpx;
-  border-left: 6rpx solid var(--accent);
-  line-height: 1.3;
-}
-.graph-page .pill {
-  display: inline-block;
-  padding: 4rpx 14rpx;
-  border-radius: 999rpx;
-  font-size: 21rpx;
-  line-height: 1.5;
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.graph-page .primary-button {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 30rpx;
-  font-weight: 600;
-  padding: 22rpx 0;
-  text-align: center;
-}
-.graph-page .primary-button[disabled] { opacity: .55; }
-.graph-page .secondary-button {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 30rpx;
-  font-weight: 600;
-  padding: 22rpx 0;
-  text-align: center;
-}
-.graph-page .secondary-button[disabled] { opacity: .55; }
-.graph-page .danger-button {
-  background: #a43f37;
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 30rpx;
-  font-weight: 600;
-  padding: 22rpx 0;
-  text-align: center;
-}
-.graph-page .empty {
-  text-align: center;
-  color: var(--muted);
-  padding: 72rpx 24rpx;
-  font-size: 26rpx;
-}
-.graph-page .chevron { color: #9ba8b4; font-size: 44rpx; font-weight: 300; }
 
 /* —— 顶部工具条 —— */
 .toolbar-wrap { position: relative; z-index: 30; }
@@ -361,3 +285,43 @@
 .import-check { width: 36rpx; height: 36rpx; flex: 0 0 36rpx; margin-right: 18rpx; border-radius: 8rpx; border: 2rpx solid var(--line); color: #fff; font-size: 24rpx; line-height: 34rpx; text-align: center; }
 .import-check--on { background: var(--accent); border-color: var(--accent); }
 .import-actions { margin: 0; padding: 16rpx 28rpx 32rpx; border-top: 1rpx solid var(--line-soft); }
+
+/* The graph keeps its canvas geometry; shared chrome is scoped to this page. */
+.graph-page .toolbar-wrap { background:var(--bg); }
+.graph-page .search { background:#fff; border-radius:16rpx; }
+.graph-page .search-input { min-width:0; }
+.graph-page .pill { background:#fff; border:1rpx solid var(--line); color:var(--muted); }
+.graph-page .tool-btn { border-radius:12rpx; }
+.graph-page .sheet { border-radius:28rpx 28rpx 0 0; box-shadow:0 -12rpx 44rpx rgba(20,30,60,.13); }
+.graph-page .sheet-head { padding:26rpx 28rpx 20rpx; }
+.graph-page .sheet-title { min-width:0; overflow-wrap:anywhere; }
+.graph-page .sheet-close { flex:none; padding:4rpx 10rpx; }
+.graph-page .sheet-body { box-sizing:border-box; min-height:0; padding-bottom:calc(32rpx + env(safe-area-inset-bottom)); }
+.graph-page .primary-button,.graph-page .secondary-button,.graph-page .danger-button { border-radius:18rpx; }
+.graph-page .member-name { min-width:0; overflow-wrap:anywhere; }
+.graph-page .member-org { max-width:35%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.graph-page .import-actions { padding-bottom:calc(20rpx + env(safe-area-inset-bottom)); }
+.graph-page { width:100%; min-width:0; max-width:100%; word-wrap:break-word; }
+.graph-page .search { flex:1 1 0%; min-width:0; box-sizing:border-box; }
+.graph-page .search-input { width:0; min-width:0; }
+.graph-page .stats { flex:none; flex-wrap:wrap; max-width:44%; }
+.graph-page .stats .pill { max-width:100%; box-sizing:border-box; word-wrap:break-word; }
+.graph-page .mode-switch { flex-wrap:wrap; }
+.graph-page .mode-actions { min-width:0; flex-wrap:wrap; }
+.graph-page .empty-state,.graph-page .empty-card,.graph-page .tree-tip,.graph-page .hint,.graph-page .focus-banner,.graph-page .sheet,.graph-page .sheet-body { box-sizing:border-box; min-width:0; max-width:100%; }
+.graph-page .sheet-title { flex:1; word-wrap:break-word; }
+.graph-page .kv-row .v { min-width:0; word-wrap:break-word; }
+.graph-page .kv-row .k { box-sizing:border-box; }
+.graph-page .tool-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.graph-page .tool-grid .tool-card { width:100%; min-width:0; box-sizing:border-box; }
+.graph-page .filter-name,.graph-page .rank-name,.graph-page .cat-name { min-width:0; word-wrap:break-word; }
+.graph-page .manage-row { flex-wrap:wrap; }
+.graph-page .manage-info { flex:1 1 240rpx; }
+.graph-page .manage-ops { max-width:100%; flex-wrap:wrap; }
+.graph-page .path-node,.graph-page .tag { box-sizing:border-box; max-width:100%; word-wrap:break-word; }
+.graph-page .focus-text { flex:1; min-width:0; word-wrap:break-word; }
+.graph-page .focus-exit { flex:none; }
+.graph-page .overlay-top { width:88%; }
+.graph-page .sheet-actions button,.graph-page .import-actions button { width:100%; }
+.graph-feedback { position:absolute; z-index:12; left:24rpx; right:24rpx; top:24rpx; box-sizing:border-box; padding:28rpx; border:1rpx solid var(--line); border-radius:20rpx; color:var(--text); background:var(--card); text-align:center; font-size:26rpx; line-height:1.6; word-wrap:break-word; }
+.graph-feedback button { width:100%; margin-top:20rpx; }

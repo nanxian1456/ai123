@@ -139,7 +139,8 @@ public class InsightController {
         String country = request.country().trim();
         String province = request.province() == null ? "" : request.province().trim();
         String city = request.city() == null ? "" : request.city().trim();
-        if (request.level().equals("city") && province.isBlank()) {
+        boolean requiresProvince = country.equals("中国") || country.equalsIgnoreCase("China");
+        if (request.level().equals("city") && requiresProvince && province.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前地区未设置，无法定位");
         }
         String prefix = country + (province.isBlank() ? "" : " " + province);

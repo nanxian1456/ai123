@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface RelationshipRepository extends JpaRepository<RelationshipEntity, Long> {
     List<RelationshipEntity> findByOwnerIdOrderByIdAsc(String ownerId);
     Optional<RelationshipEntity> findByOwnerIdAndId(String ownerId, Long id);
+    void deleteByOwnerId(String ownerId);
 
     @Modifying
     @Query("delete from RelationshipEntity r where r.ownerId = :ownerId and (r.sourceId = :contactId or r.targetId = :contactId)")

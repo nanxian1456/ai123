@@ -1,8 +1,28 @@
 <view class="page">
-  <settings-entry />
   <view class="flow"><view class="flow-step active">1</view><view></view><view class="flow-step">2</view><view></view><view class="flow-step">3</view></view>
-  <view class="intro"><view>建立人物关系</view><text>选择双方联系人并记录关系类型</text></view>
+  <view class="intro"><view>{{editing ? '编辑人物关系' : '建立人物关系'}}</view><text>选择关联人物并记录关系类型</text></view>
   <view class="source-card" wx:if="{{source}}"><text>当前联系人</text><view>{{source.name}}</view><text>{{source.position || '未填写职务'}} · {{source.organization || '未填写单位'}}</text></view>
-  <view class="section-title">关联设置</view><view class="form-card"><view class="field"><text>关联人物</text><picker mode="selector" range="{{contacts}}" range-key="name" value="{{targetIndex}}" bindchange="targetChange"><view>{{targetName}} <text>›</text></view></picker></view><view class="field"><text>关系类型</text><picker mode="selector" range="{{types}}" value="{{typeIndex}}" bindchange="typeChange"><view>{{typeName}} <text>›</text></view></picker></view><view class="field note"><text>关系备注</text><textarea placeholder="例如：共同参与某项目" value="{{note}}" bindinput="noteInput" maxlength="200"/></view></view>
-  <button class="save-button" bindtap="save" loading="{{saving}}" disabled="{{saving}}">{{saving ? '正在保存…' : '确认建立关系'}}</button>
+  <view class="app-state" wx:if="{{loading}}" role="status">正在读取联系人…</view>
+  <view class="app-state app-state--error" wx:if="{{loadError}}">{{loadError}}</view>
+  <view class="section-title">关联设置</view>
+  <view class="form-card">
+    <view class="field target-field">
+      <text>关联人物</text>
+      <view wx:if="{{targetId}}" class="target-selected">
+        <view class="target-info"><text class="target-name">{{targetName}}</text><text class="target-meta" wx:if="{{targetMeta}}">{{targetMeta}}</text></view>
+        <text class="target-change" bindtap="clearTarget">更换</text>
+      </view>
+      <input wx:else class="target-search" placeholder="搜索姓名、单位、城市或电话" value="{{keyword}}" bindinput="onKeyword" disabled="{{loading || saving}}" />
+    </view>
+    <view class="target-list" wx:if="{{!targetId && !loading}}">
+      <view class="target-row" wx:for="{{results}}" wx:key="id" data-id="{{item.id}}" bindtap="chooseTarget">
+        <text class="target-name">{{item.name}}</text><text class="target-meta" wx:if="{{item.meta}}">{{item.meta}}</text>
+      </view>
+      <view class="target-empty" wx:if="{{!results.length}}">{{candidateCount ? '没有找到匹配的联系人' : '暂无其他联系人，请先在联系人页新增'}}</view>
+      <view class="target-empty" wx:if="{{moreCount}}">还有 {{moreCount}} 位，继续输入以缩小范围</view>
+    </view>
+    <view class="field"><text>关系类型</text><picker mode="selector" range="{{types}}" value="{{typeIndex}}" bindchange="typeChange"><view>{{typeName}} <text>›</text></view></picker></view>
+    <view class="field note"><text>关系备注</text><textarea placeholder="例如：共同参与某项目" value="{{note}}" bindinput="noteInput" maxlength="200"/></view>
+  </view>
+  <button class="save-button" bindtap="save" loading="{{saving}}" disabled="{{saving || loading || loadError}}">{{saving ? '正在保存…' : (editing ? '保存修改' : '确认建立关系')}}</button>
 </view>

@@ -7,12 +7,15 @@
 <view>{{isEdit ? '更新你的个人信息' : '完善个人资料，开始建立人脉网络'}}</view>
 <text>以下资料仅用于你的个人主页展示</text>
 </view>
-<view class="avatar-preview avatar-{{form.avatarType}}">
+<image wx:if="{{avatarUrl && !resetAvatar}}" class="avatar-preview" src="{{avatarUrl}}" mode="aspectFill"/>
+<view wx:else class="avatar-preview avatar-{{form.avatarType}}">
 <view class="avatar-head">
 </view>
 <view class="avatar-body">
 </view>
 </view>
+<button wx:if="{{avatarUrl && !resetAvatar}}" class="ui-link" bindtap="resetDefaultAvatar" disabled="{{loading || saving}}">恢复默认头像（保存后生效）</button>
+<view class="app-help" wx:if="{{dirty}}">有未保存的修改，请保存后再离开。</view>
 <view class="avatar-picker">
 <view class="picker-label">选择默认头像</view>
 <view class="avatar-options">

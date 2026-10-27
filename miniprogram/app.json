@@ -17,6 +17,7 @@
     "pages/data-backup/index",
     "pages/settings-friends/index",
     "pages/settings-privacy/index",
+    "pages/settings-help/index",
     "pages/legal/index",
     "pages/logout/index",
     "pages/me/index"
@@ -57,6 +58,8 @@
   "workers": "workers",
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
-  "requiredPrivateInfos": ["chooseLocation"],
+  "requiredPrivateInfos": [
+    "chooseLocation"
+  ],
   "sitemapLocation": "sitemap.json"
 }

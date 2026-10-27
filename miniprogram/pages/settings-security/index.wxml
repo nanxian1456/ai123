@@ -1,17 +1,27 @@
 <view class="page">
+  <view class="app-state app-state--error" wx:if="{{loadError}}">{{loadError}}<button class="app-action" bindtap="onShow">重新加载</button></view>
+  <view class="app-state" wx:if="{{loading}}">正在读取账号信息…</view>
   <view class="card security-card">
     <view class="security-status">
       <text class="status-icon">✓</text>
-      <view><text>个人数据已隔离</text><text>联系人、关系和个人资料保存在本机，并按微信账号区分</text></view>
+      <view><text>个人数据按账号隔离</text><text>本机资料尚未加密存储；导出备份时另行加密，请保护好手机和备份密码。</text></view>
     </view>
     <view class="security-detail"><text>登录方式</text><text>微信授权登录</text></view>
   </view>
-  <view class="card logout-link" bindtap="openBackup">
+  <view class="card logout-link" bindtap="openBackup" wx:if="{{!cleanupPending}}">
     <view><text>数据备份与恢复</text><text>将本机资料加密保存到文件</text></view>
     <text class="chevron">›</text>
   </view>
-  <view class="card logout-link" bindtap="openLogout">
+  <view class="card logout-link" bindtap="openLogout" wx:if="{{!cleanupPending}}">
     <view><text>退出登录</text><text>仅清除登录状态，本机个人数据仍会保留</text></view>
     <text class="chevron">›</text>
+  </view>
+  <view class="card account-deletion-card">
+    <view class="section-title">注销小程序账号</view>
+    <view class="app-help">注销前请先备份。服务器确认注销后才清理当前账号的本机资料；网络失败时保留本机数据。</view>
+    <view class="app-help">已生成或分享的备份、他人已导入的资料及其他手机副本需要分别管理。为阻止旧登录令牌继续使用，服务器保留账号的单向摘要和会话版本；历史孤立头像文件需由运营方清理。</view>
+    <view class="app-state app-state--warning" wx:if="{{cleanupPending}}">注销流程尚未完成。请联网确认结果；服务器确认后才继续清理本机资料。</view>
+    <view class="app-state app-state--error" wx:if="{{deletionError}}">{{deletionError}}</view>
+    <button class="danger-button" bindtap="beginDeletion" loading="{{deleting}}" disabled="{{deleting || loading || loadError}}">{{cleanupPending ? '继续注销流程' : '注销当前账号'}}</button>
   </view>
 </view>
