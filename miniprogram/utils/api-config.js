@@ -10,7 +10,7 @@ catch {
     /* Optional per-build configuration. */
 }
 const API_BASE_URLS = {
-    develop: localConfig.develop || "http://127.0.0.1:8080/api",
+    develop: localConfig.develop || "http://127.0.0.1:8081/api",
     trial: localConfig.trial,
     release: localConfig.release,
 };

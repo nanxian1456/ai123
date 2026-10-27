@@ -48,6 +48,16 @@ let flyFrame: any;
 let dragState: { x: number; y: number; moved: boolean } | null = null;
 let pinchDistance = 0;
 let earth: any;
+let cloudMesh: any;
+
+function makeTexture(image: any) {
+  const texture = new THREE.Texture(image);
+  // SphereGeometry's UV origin is 90 degrees west of our longitude origin.
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.offset.x = 0.25;
+  texture.needsUpdate = true;
+  return texture;
+}
 
 function lonLat(lon: number, lat: number, radius = 1.006) {
   const phi = lat * Math.PI / 180;
@@ -139,9 +149,68 @@ function createStarfield() {
 }
 
 function createAtmosphere() {
-  const geometry = new THREE.SphereGeometry(1.055, 40, 30);
-  const material = new THREE.MeshBasicMaterial({ color: 0x237aff, transparent: true, opacity: 0.16, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
-  globeGroup.add(new THREE.Mesh(geometry, material));
+  const vertexShader = [
+    "varying vec3 vNormal;",
+    "void main() {",
+    "  vNormal = normalize(normalMatrix * normal);",
+    "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+    "}"
+  ].join("\n");
+  // Outer halo: fresnel glow on the back-side shell around the planet.
+  const haloMaterial = new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader: [
+      "varying vec3 vNormal;",
+      "void main() {",
+      "  float intensity = pow(0.62 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.2);",
+      "  gl_FragColor = vec4(0.3, 0.58, 1.0, 1.0) * intensity;",
+      "}"
+    ].join("\n"),
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false
+  });
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(1.16, 48, 36), haloMaterial);
+  halo.renderOrder = 3;
+  globeGroup.add(halo);
+  // Inner rim: thin blue scattering on the planet's limb.
+  const rimMaterial = new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader: [
+      "varying vec3 vNormal;",
+      "void main() {",
+      "  float rim = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 3.0);",
+      "  gl_FragColor = vec4(0.35, 0.62, 1.0, 1.0) * rim * 0.55;",
+      "}"
+    ].join("\n"),
+    side: THREE.FrontSide,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false
+  });
+  const rim = new THREE.Mesh(new THREE.SphereGeometry(1.001, 48, 36), rimMaterial);
+  rim.renderOrder = 2;
+  globeGroup.add(rim);
+}
+
+function createClouds() {
+  cloudMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1.012, 48, 36),
+    new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.42, depthWrite: false })
+  );
+  cloudMesh.renderOrder = 1;
+  globeGroup.add(cloudMesh);
+  const cloudImage = canvas.createImage();
+  cloudImage.onload = () => {
+    // Same texture drives map + alphaMap: white clouds show, black stays invisible,
+    // and both share the map's uvTransform (r108 ignores alphaMap-only offsets).
+    const cloudTexture = makeTexture(cloudImage);
+    cloudMesh.material.map = cloudTexture;
+    cloudMesh.material.alphaMap = cloudTexture;
+    cloudMesh.material.needsUpdate = true;
+  };
+  cloudImage.src = "/assets/images/earth-clouds.jpg";
 }
 
 function createGlobeGrid() {
@@ -157,13 +226,14 @@ function createGlobeGrid() {
     }
   }
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({ color: 0x2874c4, transparent: true, opacity: 0.22, depthWrite: false });
+  const material = new THREE.LineBasicMaterial({ color: 0x2874c4, transparent: true, opacity: 0.12, depthWrite: false });
   globeGroup.add(new THREE.LineSegments(geometry, material));
 }
 
 function animate() {
   if (!renderer || !scene || !camera) return;
   frame = canvas.requestAnimationFrame(animate);
+  if (cloudMesh) cloudMesh.rotation.y += 0.00045;
   renderer.render(scene, camera);
 }
 
@@ -249,24 +319,29 @@ Page({
         renderer.setSize(canvasSize.width, canvasSize.height, false);
         globeGroup = new THREE.Group(); countryGroup = new THREE.Group(); markerGroup = new THREE.Group();
         globeGroup.add(countryGroup); globeGroup.add(markerGroup); scene.add(globeGroup);
-        scene.add(new THREE.AmbientLight(0x8cbcff, 0.8));
-        const light = new THREE.DirectionalLight(0xffffff, 1.1); light.position.set(2, 2, 3); scene.add(light);
-        earth = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 36), new THREE.MeshPhongMaterial({ color: 0x071c3b, specular: 0x2563a6, shininess: 32 }));
+        // Realistic day/night lighting: dim cool ambient, a warm "sun" and a faint blue fill for the night side.
+        scene.add(new THREE.AmbientLight(0x22364f, 0.85));
+        const sun = new THREE.DirectionalLight(0xfff2df, 1.4); sun.position.set(3, 1.4, 2.4); scene.add(sun);
+        const fill = new THREE.DirectionalLight(0x4a7dd6, 0.25); fill.position.set(-3, -1.5, -1.5); scene.add(fill);
+        earth = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), new THREE.MeshPhongMaterial({ color: 0x071c3b, specular: 0x5599dd, shininess: 22 }));
         const earthMaterial = earth.material;
-        const landImage = canvas.createImage();
-        landImage.onload = () => {
-          const texture = new THREE.Texture(landImage);
-          // SphereGeometry's UV origin is 90 degrees west of our longitude origin.
-          texture.wrapS = THREE.RepeatWrapping;
-          texture.offset.x = 0.25;
-          texture.needsUpdate = true;
+        const dayImage = canvas.createImage();
+        dayImage.onload = () => {
           earthMaterial.color.setHex(0xffffff);
-          earthMaterial.map = texture;
+          earthMaterial.map = makeTexture(dayImage);
           earthMaterial.needsUpdate = true;
         };
-        landImage.onerror = () => this.setData({ globeError: "陆地纹理加载失败，请重新进入地图" });
-        landImage.src = "/assets/images/globe-land.png";
+        dayImage.onerror = () => this.setData({ globeError: "地球纹理加载失败，请重新进入地图" });
+        dayImage.src = "/assets/images/earth-day.jpg";
+        const waterImage = canvas.createImage();
+        waterImage.onload = () => {
+          // White = ocean in the mask, so only the water catches the sun's specular highlight.
+          earthMaterial.specularMap = makeTexture(waterImage);
+          earthMaterial.needsUpdate = true;
+        };
+        waterImage.src = "/assets/images/earth-water.jpg";
         globeGroup.add(earth);
+        createClouds();
         createAtmosphere();
         createGlobeGrid();
         createStarfield();
@@ -292,7 +367,7 @@ Page({
     if (frame && canvas) canvas.cancelAnimationFrame(frame);
     cancelFly();
     renderer?.dispose();
-    renderer = null; scene = null; globeGroup = null; countryGroup = null; markerGroup = null; markerObjects = []; canvas = null; frame = null; earth = null;
+    renderer = null; scene = null; globeGroup = null; countryGroup = null; markerGroup = null; markerObjects = []; canvas = null; frame = null; earth = null; cloudMesh = null;
   },
 
   async load() {

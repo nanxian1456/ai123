@@ -76,8 +76,18 @@ function clearSession() {
 }
 function wechatLogin() {
     return new Promise((resolve, reject) => wx.login({
-        success: ({ code }) => code ? resolve(code) : reject(new Error("未获取到微信登录凭证")),
-        fail: () => reject(new Error("微信登录失败")),
+        success: (result) => {
+            if (result.code)
+                return resolve(result.code);
+            const error = new Error(`微信未返回登录凭证（${result.errMsg || "无错误详情"}）`);
+            error.code = "WECHAT_LOGIN_FAILED";
+            reject(error);
+        },
+        fail: (result) => {
+            const error = new Error(`微信登录调用失败（${result.errMsg || "无错误详情"}）`);
+            error.code = "WECHAT_LOGIN_FAILED";
+            reject(error);
+        },
     }));
 }
 function backendRequest(path, method, data, token) {
@@ -221,7 +231,7 @@ async function validateSession() {
 function request(path, method = "GET", data) {
     if (path === "/ai/extract")
         return ensureSession().then((token) => backendRequest(path, method, data, token));
-    if (path === "/maps/locations")
+    if (path === "/maps/locations" || path.startsWith("/maps/locations?"))
         return ensureSession().then((token) => backendRequest(path, method, data, token));
     if (path === "/me/import-code")
         return ensureSession().then((token) => backendRequest("/me", "GET", undefined, token).then((profile) => profile.contactCode));

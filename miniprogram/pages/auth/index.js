@@ -47,7 +47,17 @@ Page({
             else
                 wx.redirectTo({ url: "/pages/profile-setup/index" });
         })
-            .catch(api_1.showError)
+            .catch((error) => {
+            if (error.code === "WECHAT_LOGIN_FAILED") {
+                wx.showModal({
+                    title: "微信登录未完成",
+                    content: `${error.message}\n请确认开发者工具已登录微信账号，且项目使用正确的小程序 AppID。也可改用真机调试重试。`,
+                    showCancel: false
+                });
+                return;
+            }
+            (0, api_1.showError)(error);
+        })
             .finally(() => this.setData({ loggingIn: false }));
     }
 });

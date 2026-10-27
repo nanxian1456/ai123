@@ -81,9 +81,21 @@ export function clearSession() {
 function wechatLogin(): Promise<string> {
   return new Promise<string>((resolve, reject) =>
     wx.login({
-      success: ({ code }) =>
-        code ? resolve(code) : reject(new Error("未获取到微信登录凭证")),
-      fail: () => reject(new Error("微信登录失败")),
+      success: (result) => {
+        if (result.code) return resolve(result.code);
+        const error: RequestError = new Error(
+          `微信未返回登录凭证（${result.errMsg || "无错误详情"}）`,
+        );
+        error.code = "WECHAT_LOGIN_FAILED";
+        reject(error);
+      },
+      fail: (result) => {
+        const error: RequestError = new Error(
+          `微信登录调用失败（${result.errMsg || "无错误详情"}）`,
+        );
+        error.code = "WECHAT_LOGIN_FAILED";
+        reject(error);
+      },
     }),
   );
 }
@@ -257,7 +269,7 @@ export function request<T = any>(
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
     );
-  if (path === "/maps/locations")
+  if (path === "/maps/locations" || path.startsWith("/maps/locations?"))
     return ensureSession().then((token) =>
       backendRequest(path, method, data, token),
     );
