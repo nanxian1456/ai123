@@ -13,7 +13,7 @@ try {
 }
 
 const API_BASE_URLS: Record<string, string | undefined> = {
-  develop: localConfig.develop || "http://127.0.0.1:8081/api",
+  develop: localConfig.develop || "http://127.0.0.1:8080/api",
   trial: localConfig.trial,
   release: localConfig.release,
 };
